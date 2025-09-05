@@ -8,10 +8,10 @@ export default function Home() {
       </p>
       <div className="mt-8 flex gap-4">
         <a
-          href="/api/coros/start"
+          href="/api/strava/start"
           className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
         >
-          COROSと接続する
+          Stravaと接続する
         </a>
       </div>
     </main>
