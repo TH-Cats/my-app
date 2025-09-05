@@ -13,6 +13,22 @@ export default function Home() {
         >
           Stravaと接続する
         </a>
+        <a
+          href="#"
+          onClick={async (e) => {
+            e.preventDefault();
+            const athleteId = prompt('Strava athleteId を入力 (例: 47171719)');
+            if (!athleteId) return;
+            await fetch('/api/strava/import', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ athleteId, limit: 30 }),
+            }).then(async (r) => alert(JSON.stringify(await r.json())));
+          }}
+          className="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+        >
+          最近のアクティビティを取り込む
+        </a>
       </div>
     </main>
   );
