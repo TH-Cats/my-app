@@ -31,6 +31,12 @@ export default function Home() {
         >
           最近のアクティビティを取り込む
         </a>
+        <a
+          href="/activities"
+          className="inline-block bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Activitiesを見る
+        </a>
       </div>
     </main>
   );
