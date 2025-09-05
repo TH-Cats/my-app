@@ -27,7 +27,16 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <div className="min-h-dvh flex flex-col">
+          <div className="flex-1">
+            {children}
+          </div>
+          <footer className="border-t text-sm text-gray-500 p-4 flex items-center justify-center gap-4">
+            <a href="/privacy" className="hover:underline">Privacy Policy</a>
+            <span>•</span>
+            <a href="/terms" className="hover:underline">Terms of Service</a>
+          </footer>
+        </div>
       </body>
     </html>
   );
