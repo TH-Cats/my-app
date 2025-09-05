@@ -6,6 +6,14 @@ export default function Home() {
       <p className="mt-2 text-gray-600">
         このテキストは <code>app/page.tsx</code> から表示しています。
       </p>
+      <div className="mt-8 flex gap-4">
+        <a
+          href="/api/coros/start"
+          className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        >
+          COROSと接続する
+        </a>
+      </div>
     </main>
   );
 }
