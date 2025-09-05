@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/strava",
-      "schedule": "0 * * * *" // every hour
+      "schedule": "0 * * * *"
     }
   ]
 }
