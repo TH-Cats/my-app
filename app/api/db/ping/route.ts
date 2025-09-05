@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
 
+export const runtime = 'nodejs';
+
 export async function GET() {
   try {
     // Simple round-trip to DB (no-op query)
