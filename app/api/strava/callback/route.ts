@@ -70,8 +70,9 @@ export async function GET(request: NextRequest) {
 
     return Response.json({ success: true, message: 'Connected to Strava ✅', athleteId });
   } catch (e) {
-    console.error('Strava callback error:', e);
-    return Response.json({ error: 'Internal server error' }, { status: 500 });
+    const message = (e as Error)?.message || 'Unknown error';
+    console.error('Strava callback error:', message);
+    return Response.json({ error: 'Internal server error', detail: message }, { status: 500 });
   }
 }
 
