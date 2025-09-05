@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 function formatDistance(m?: number | null) {
   if (!m && m !== 0) return '-';
