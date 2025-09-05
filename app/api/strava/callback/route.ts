@@ -1,4 +1,6 @@
 import { NextRequest } from 'next/server';
+import { prisma } from '@/lib/prisma';
+export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -36,13 +38,37 @@ export async function GET(request: NextRequest) {
       return Response.json({ error: tokenData?.message || 'Token exchange failed' }, { status: 400 });
     }
 
-    console.log('STRAVA TOKEN (demo):', {
-      access_token: tokenData.access_token?.substring(0, 10) + '...',
-      refresh_token: tokenData.refresh_token?.substring(0, 10) + '...',
-      athlete_id: tokenData.athlete?.id,
+    const athleteId = String(tokenData.athlete?.id ?? '');
+    if (!athleteId) {
+      return Response.json({ error: 'Missing athlete id' }, { status: 400 });
+    }
+
+    // Upsert a demo user for now (email unknown) and save tokens
+    const user = await prisma.user.upsert({
+      where: { email: `strava_${athleteId}@example.local` },
+      update: {},
+      create: { email: `strava_${athleteId}@example.local` },
     });
 
-    return Response.json({ success: true, message: 'Connected to Strava ✅' });
+    await prisma.providerAccount.upsert({
+      where: { provider_providerUserId: { provider: 'strava', providerUserId: athleteId } },
+      update: {
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token ?? null,
+        expiresAt: tokenData.expires_at ? new Date(tokenData.expires_at * 1000) : null,
+        userId: user.id,
+      },
+      create: {
+        provider: 'strava',
+        providerUserId: athleteId,
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token ?? null,
+        expiresAt: tokenData.expires_at ? new Date(tokenData.expires_at * 1000) : null,
+        userId: user.id,
+      },
+    });
+
+    return Response.json({ success: true, message: 'Connected to Strava ✅', athleteId });
   } catch (e) {
     console.error('Strava callback error:', e);
     return Response.json({ error: 'Internal server error' }, { status: 500 });
