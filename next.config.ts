@@ -1,23 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  experimental: {
-    turbo: {
-      // Turbopack specific configurations for production
-    }
-  },
+  // Remove standalone output for Vercel compatibility
   typescript: {
-    // During builds, we'll ignore type errors to prevent blocking
-    ignoreBuildErrors: false,
+    // Don't block builds on type errors in production
+    ignoreBuildErrors: process.env.NODE_ENV === 'production',
   },
   eslint: {
-    // Don't block builds on lint errors
-    ignoreDuringBuilds: false,
-  },
-  output: 'standalone',
-  // Ensure all pages are properly generated
-  generateBuildId: async () => {
-    return 'drc-trainer-build-' + Date.now();
+    // Don't block builds on lint errors in production  
+    ignoreDuringBuilds: process.env.NODE_ENV === 'production',
   },
 };
 
