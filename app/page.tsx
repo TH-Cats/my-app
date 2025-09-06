@@ -37,6 +37,12 @@ export default function Home() {
         >
           Activitiesを見る
         </a>
+        <a
+          href="/dashboard"
+          className="inline-block bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Dashboard
+        </a>
       </div>
     </main>
   );
