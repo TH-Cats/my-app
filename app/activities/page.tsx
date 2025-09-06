@@ -35,8 +35,9 @@ function formatDuration(sec?: number | null) {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-export default async function ActivitiesPage({ searchParams }: { searchParams: { page?: string } }) {
-  const page = Number(searchParams?.page || '1');
+export default async function ActivitiesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const params = await searchParams;
+  const page = Number(params?.page || '1');
   const pageSize = 20;
   const activities = await prisma.activity.findMany({
     orderBy: { startTime: 'desc' },
