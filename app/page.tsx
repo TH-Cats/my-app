@@ -11,9 +11,22 @@ export default function Home() {
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
-    const p = localStorage.getItem('ai-plan');
-    if (p) setPlan(JSON.parse(p));
-    else generate();
+    try {
+      const p = localStorage.getItem('ai-plan');
+      if (p) {
+        try {
+          const parsed = JSON.parse(p);
+          setPlan(parsed);
+        } catch {
+          // 古い形式（プレーンテキストなど）は一度破棄
+          localStorage.removeItem('ai-plan');
+        }
+      } else {
+        generate();
+      }
+    } catch {
+      // localStorage 不可時は無視
+    }
   }, []);
 
   const generate = async () => {
