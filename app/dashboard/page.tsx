@@ -87,32 +87,58 @@ async function loadYear(yearOffset = 0) {
 function RatioTable({
   current,
   last,
+  currentZoneSec,
+  lastZoneSec,
 }: {
   current: Record<ZoneKey, number>;
   last: Record<ZoneKey, number>;
+  currentZoneSec: Record<ZoneKey, number>;
+  lastZoneSec: Record<ZoneKey, number>;
 }) {
   const keys = Object.keys(current) as ZoneKey[];
+  const formatTime = (sec: number) => {
+    const hours = sec / 3600;
+    if (hours < 1) {
+      return `${Math.round(sec / 60)}m`;
+    }
+    return `${hours.toFixed(1)}h`;
+  };
+
   return (
     <table className="w-full text-sm border mt-4">
       <thead>
         <tr className="bg-gray-50">
-          <th className="text-left p-2">ゾーン</th>
-          <th className="text-right p-2">今年(%)</th>
-          <th className="text-right p-2">昨年(%)</th>
-          <th className="text-right p-2">差分(pts)</th>
+          <th className="text-left p-3">ゾーン</th>
+          <th className="text-right p-3">今年</th>
+          <th className="text-right p-3">昨年</th>
+          <th className="text-right p-3">差分</th>
         </tr>
       </thead>
       <tbody>
         {keys.map((k) => {
-          const c = Math.round(current[k] * 1000) / 10;
-          const l = Math.round((last[k] ?? 0) * 1000) / 10;
-          const d = Math.round((c - l) * 10) / 10;
+          const cPct = Math.round(current[k] * 1000) / 10;
+          const lPct = Math.round((last[k] ?? 0) * 1000) / 10;
+          const dPct = Math.round((cPct - lPct) * 10) / 10;
+          const cTime = currentZoneSec[k] || 0;
+          const lTime = lastZoneSec[k] || 0;
+          
           return (
-            <tr key={k} className="border-t">
-              <td className="p-2">{ZONE_LABEL[k]}</td>
-              <td className="p-2 text-right">{c.toFixed(1)}</td>
-              <td className="p-2 text-right">{l.toFixed(1)}</td>
-              <td className={`p-2 text-right ${d >= 0 ? 'text-green-700' : 'text-red-700'}`}>{d.toFixed(1)}</td>
+            <tr key={k} className="border-t hover:bg-gray-50">
+              <td className="p-3 font-medium">{ZONE_LABEL[k]}</td>
+              <td className="p-3 text-right">
+                <div className="font-semibold">{cPct.toFixed(1)}%</div>
+                <div className="text-xs text-gray-500">{formatTime(cTime)}</div>
+              </td>
+              <td className="p-3 text-right">
+                <div className="font-semibold">{lPct.toFixed(1)}%</div>
+                <div className="text-xs text-gray-500">{formatTime(lTime)}</div>
+              </td>
+              <td className={`p-3 text-right ${dPct >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                <div className="font-semibold">{dPct >= 0 ? '+' : ''}{dPct.toFixed(1)}pts</div>
+                <div className="text-xs">
+                  {cTime >= lTime ? '+' : ''}{formatTime(Math.abs(cTime - lTime))}
+                </div>
+              </td>
             </tr>
           );
         })}
@@ -186,8 +212,16 @@ export default async function DashboardPage() {
       
       {/* Heart rate zones analysis */}
       <div className="bg-white border rounded-lg p-6">
-        <h2 className="text-xl font-semibold mb-4">心拍ゾーン別割合（今年 vs 昨年）</h2>
-        <RatioTable current={cur.ratio} last={prev.ratio} />
+        <h2 className="text-xl font-semibold mb-4">心拍ゾーン別分析（今年 vs 昨年）</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          各ゾーンの割合（%）と実際のトレーニング時間を表示
+        </p>
+        <RatioTable 
+          current={cur.ratio} 
+          last={prev.ratio}
+          currentZoneSec={cur.byZoneSec}
+          lastZoneSec={prev.byZoneSec}
+        />
       </div>
     </main>
   );
