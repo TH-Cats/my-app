@@ -24,3 +24,11 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.brand {
+  background: linear-gradient(90deg, #fff7ed, #fef3c7);
+}
+.brand-title {
+  font-weight: 800;
+  letter-spacing: .02em;
+}

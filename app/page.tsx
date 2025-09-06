@@ -101,8 +101,26 @@ export default function Home() {
   }, [plan]);
 
   return (
-    <main className="min-h-screen p-8 space-y-6">
-      <h1 className="text-2xl font-bold">DRC Trainer</h1>
+    <main className="min-h-screen space-y-6">
+      <header className="brand border-b">
+        <div className="max-w-6xl mx-auto p-4 flex items-center gap-3">
+          <img src="/logo-drc.png" alt="DRC Trainer" width={56} height={56} className="rounded" />
+          <div>
+            <div className="text-2xl brand-title">DRC Trainer</div>
+            <div className="text-xs text-gray-600">日々の最適メニューをAIが提案</div>
+          </div>
+          <div className="ml-auto relative">
+            <details>
+              <summary className="cursor-pointer px-3 py-2 rounded border bg-white">設定 ▾</summary>
+              <div className="absolute right-0 mt-2 w-64 bg-white border rounded shadow">
+                <a href="/api/strava/start" className="block px-3 py-2 hover:bg-gray-50">Stravaと接続する</a>
+                <button onClick={async ()=>{ const athleteId = prompt('Strava athleteId を入力 (例: 47171719)'); if (!athleteId) return; await fetch('/api/strava/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ athleteId, limit: 30 })}).then(async (r)=>alert(JSON.stringify(await r.json()))); }} className="block w-full text-left px-3 py-2 hover:bg-gray-50">最近のアクティビティを取り込む</button>
+              </div>
+            </details>
+          </div>
+        </div>
+      </header>
+      <div className="max-w-6xl mx-auto p-6">
 
       <section className="bg-white border rounded p-4">
         <div className="flex items-center justify-between">
@@ -155,6 +173,7 @@ export default function Home() {
           <iframe src="/dashboard" className="w-full" style={{height: '1200px'}} title="dashboard-embed" />
         </section>
       )}
+      </div>
     </main>
   );
 }
