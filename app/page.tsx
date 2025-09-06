@@ -55,13 +55,36 @@ export default function Home() {
     }
   };
 
+  function detectDowIndex(label: string): number | null {
+    const s = (label || '').toString().trim().toLowerCase();
+    if (!s) return null;
+    const tbl: Record<string, number> = {
+      sun:0, sunday:0, '日':0,
+      mon:1, monday:1, '月':1,
+      tue:2, tues:2, tuesday:2, '火':2,
+      wed:3, wednesday:3, '水':3,
+      thu:4, thur:4, thurs:4, thursday:4, '木':4,
+      fri:5, friday:5, '金':5,
+      sat:6, saturday:6, '土':6,
+    };
+    // pick first key contained in text
+    for (const k of Object.keys(tbl)) {
+      if (s === k || s.startsWith(k) || s.includes(k)) return tbl[k];
+    }
+    return null;
+  }
+
   const todayPlan: DayPlan | undefined = useMemo(() => {
     if (!plan?.weeks) return undefined;
-    const map: Record<number, string> = {0:'Sun',1:'Mon',2:'Tue',3:'Wed',4:'Thu',5:'Fri',6:'Sat'};
-    const dow = map[new Date().getDay()];
+    const todayIdx = new Date().getDay();
+    // try to find exact match
     for (const w of plan.weeks) {
-      const hit = (w.days||[]).find((d:DayPlan) => (d.day||'').slice(0,3) === dow);
+      const hit = (w.days || []).find((d: DayPlan) => detectDowIndex(d.day || '') === todayIdx);
       if (hit) return hit;
+    }
+    // fallback: first day entry
+    for (const w of plan.weeks) {
+      if ((w.days || []).length) return w.days[0];
     }
     return undefined;
   }, [plan]);
