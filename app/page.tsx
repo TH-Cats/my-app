@@ -9,6 +9,7 @@ export default function Home() {
   const [plan, setPlan] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
+  const [advice, setAdvice] = useState<{ recent?: string; menu_comment?: string } | null>(null);
 
   useEffect(() => {
     try {
@@ -36,6 +37,11 @@ export default function Home() {
       const data = await res.json();
       setPlan(data.plan);
       localStorage.setItem('ai-plan', JSON.stringify(data.plan));
+      // 初回アドバイス
+      try {
+        const adv = await fetch('/api/ai/advice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ today: data.plan?.weeks?.[0]?.days?.[0] || null }) }).then(r=>r.json());
+        if (adv?.advice) setAdvice(adv.advice);
+      } catch {}
     } finally {
       setLoading(false);
     }
@@ -50,6 +56,10 @@ export default function Home() {
       setPlan(data.plan);
       localStorage.setItem('ai-plan', JSON.stringify(data.plan));
       setMsg("");
+      try {
+        const adv = await fetch('/api/ai/advice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ today: data.plan?.weeks?.[0]?.days?.[0] || null }) }).then(r=>r.json());
+        if (adv?.advice) setAdvice(adv.advice);
+      } catch {}
     } finally {
       setLoading(false);
     }
@@ -109,6 +119,9 @@ export default function Home() {
             {todayPlan.notes ? (
               <div className="mt-1 text-xs text-gray-600">メモ: {todayPlan.notes}</div>
             ) : null}
+            {advice?.menu_comment ? (
+              <div className="mt-2 text-sm bg-blue-50 border border-blue-200 text-blue-900 rounded p-2">{advice.menu_comment}</div>
+            ) : null}
           </div>
         ) : (
           <div className="mt-2 text-sm text-gray-600">プラン未生成です。「プラン生成」を押してください。</div>
@@ -119,6 +132,9 @@ export default function Home() {
           <button disabled={loading} onClick={generate} className="px-3 py-2 rounded bg-blue-600 text-white disabled:opacity-50">{loading? '生成中…':'プラン生成'}</button>
           <a href="/plan" className="px-3 py-2 rounded border">詳細を開く</a>
         </div>
+        {advice?.recent ? (
+          <div className="mt-2 text-xs text-gray-600">直近所見: {advice.recent}</div>
+        ) : null}
       </section>
 
       <div className="flex flex-wrap gap-4">
