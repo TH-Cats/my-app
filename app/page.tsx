@@ -10,6 +10,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const [advice, setAdvice] = useState<{ recent?: string; menu_comment?: string } | null>(null);
+  const [showDash, setShowDash] = useState(true);
 
   useEffect(() => {
     try {
@@ -142,7 +143,18 @@ export default function Home() {
         <a href="#" onClick={async (e) => { e.preventDefault(); const athleteId = prompt('Strava athleteId を入力 (例: 47171719)'); if (!athleteId) return; await fetch('/api/strava/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ athleteId, limit: 30 })}).then(async (r)=>alert(JSON.stringify(await r.json()))); }} className="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">最近のアクティビティを取り込む</a>
         <a href="/activities" className="inline-block bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Activities</a>
         <a href="/dashboard" className="inline-block bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded">Dashboard</a>
+        <button onClick={()=>setShowDash(v=>!v)} className="inline-block bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded">{showDash ? 'ダッシュボードを隠す' : 'ダッシュボードを表示'}</button>
       </div>
+
+      {showDash && (
+        <section className="mt-6 bg-white border rounded overflow-hidden">
+          <div className="flex items-center justify-between p-3">
+            <h2 className="font-semibold">ダッシュボード（埋め込み）</h2>
+            <a className="text-sm underline" href="/dashboard">全画面で開く</a>
+          </div>
+          <iframe src="/dashboard" className="w-full" style={{height: '1200px'}} title="dashboard-embed" />
+        </section>
+      )}
     </main>
   );
 }
