@@ -23,6 +23,18 @@ function formatPace(distanceM?: number | null, durationSec?: number | null) {
   return `${m}:${s} /km`;
 }
 
+function formatDuration(sec?: number | null) {
+  if (sec == null) return '-';
+  const hours = Math.floor(sec / 3600);
+  const minutes = Math.floor((sec % 3600) / 60);
+  const seconds = sec % 60;
+  
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
 export default async function ActivitiesPage({ searchParams }: { searchParams: { page?: string } }) {
   const page = Number(searchParams?.page || '1');
   const pageSize = 20;
@@ -35,8 +47,13 @@ export default async function ActivitiesPage({ searchParams }: { searchParams: {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <main className="max-w-4xl mx-auto p-8">
-      <h1 className="text-2xl font-bold mb-4">Activities</h1>
+    <main className="max-w-6xl mx-auto p-8">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold">Activities</h1>
+        <div className="text-sm text-gray-600">
+          {total} activities total
+        </div>
+      </div>
       <div className="grid grid-cols-1 gap-3">
         {activities.map((a) => (
           <div key={a.id} className="border rounded p-4">
@@ -55,33 +72,84 @@ export default async function ActivitiesPage({ searchParams }: { searchParams: {
                 </a>
               ) : null}
             </div>
-            <div className="font-semibold">{a.type ?? 'unknown'}</div>
-            <div className="text-sm">{formatDate(a.startTime)} / {formatDistance(a.distanceM)}</div>
-            <div className="text-sm grid grid-cols-3 gap-2 mt-1">
-              <div>Pace: {formatPace(a.distanceM, a.durationSec)}</div>
-              <div>HR: {a.avgHr ?? '-'} bpm</div>
-              <div>Elev: {a.elevationM ?? '-'} m</div>
+            <div className="font-semibold text-lg mb-2">{a.type ?? 'unknown'}</div>
+            <div className="text-sm text-gray-600 mb-3">{formatDate(a.startTime)}</div>
+            
+            {/* Primary metrics */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+              <div className="bg-blue-50 p-2 rounded">
+                <div className="text-xs text-gray-500">Distance</div>
+                <div className="font-semibold">{formatDistance(a.distanceM)}</div>
+              </div>
+              <div className="bg-green-50 p-2 rounded">
+                <div className="text-xs text-gray-500">Duration</div>
+                <div className="font-semibold">{formatDuration(a.durationSec)}</div>
+              </div>
+              <div className="bg-orange-50 p-2 rounded">
+                <div className="text-xs text-gray-500">Pace</div>
+                <div className="font-semibold">{formatPace(a.distanceM, a.durationSec)}</div>
+              </div>
+              <div className="bg-red-50 p-2 rounded">
+                <div className="text-xs text-gray-500">Avg HR</div>
+                <div className="font-semibold">{a.avgHr ?? '-'} {a.avgHr ? 'bpm' : ''}</div>
+              </div>
+            </div>
+            
+            {/* Secondary metrics */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <div>
+                <span className="text-gray-500">Elevation:</span> {a.elevationM ?? '-'} {a.elevationM ? 'm' : ''}
+              </div>
+              <div>
+                <span className="text-gray-500">Cadence:</span> {a.avgCadence ?? '-'} {a.avgCadence ? 'spm' : ''}
+              </div>
+              <div>
+                <span className="text-gray-500">Calories:</span> {a.caloriesKcal ?? '-'} {a.caloriesKcal ? 'kcal' : ''}
+              </div>
+              <div>
+                <span className="text-gray-500">Temp:</span> {a.temperatureC ?? '-'} {a.temperatureC ? '°C' : ''}
+              </div>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="flex items-center justify-between mt-6">
+      {/* Pagination */}
+      <div className="flex items-center justify-center mt-8 space-x-4">
         <a
-          className={`px-3 py-1 rounded border ${page <= 1 ? 'pointer-events-none opacity-40' : ''}`}
+          className={`px-4 py-2 rounded-lg border transition-colors ${
+            page <= 1 
+              ? 'pointer-events-none opacity-40 bg-gray-100' 
+              : 'hover:bg-gray-50 border-gray-300'
+          }`}
           href={`/activities?page=${Math.max(1, page - 1)}`}
         >
-          ← Prev
+          ← Previous
         </a>
-        <div className="text-sm text-gray-600">
-          Page {page} / {totalPages}
+        
+        <div className="flex items-center space-x-2">
+          <span className="text-sm text-gray-600">Page</span>
+          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded font-medium">
+            {page}
+          </span>
+          <span className="text-sm text-gray-600">of {totalPages}</span>
         </div>
+        
         <a
-          className={`px-3 py-1 rounded border ${page >= totalPages ? 'pointer-events-none opacity-40' : ''}`}
+          className={`px-4 py-2 rounded-lg border transition-colors ${
+            page >= totalPages 
+              ? 'pointer-events-none opacity-40 bg-gray-100' 
+              : 'hover:bg-gray-50 border-gray-300'
+          }`}
           href={`/activities?page=${Math.min(totalPages, page + 1)}`}
         >
           Next →
         </a>
+      </div>
+      
+      {/* Results info */}
+      <div className="text-center text-sm text-gray-500 mt-4">
+        Showing {((page - 1) * pageSize) + 1}-{Math.min(page * pageSize, total)} of {total} activities
       </div>
     </main>
   );
