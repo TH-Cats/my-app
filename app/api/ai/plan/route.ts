@@ -29,6 +29,7 @@ Target race: ${input.targetRace ?? 'N/A'}
 Constraints: ${input.constraints ?? 'N/A'}
 Recent training summary (last 8 weeks):\n${input.recentSummary}
 
+Important: 回答はすべて日本語で。メニュー名・notes・説明は自然な日本語で書く。距離はkm、時間は分で表記する。
 Return JSON ONLY (no code fences, no prose) with this schema:
 {
   "weeks": [
@@ -43,6 +44,7 @@ function buildAdjustPrompt(currentPlanJson: string, message: string) {
 User message: ${message}
 Plan JSON:\n${currentPlanJson}
 
+Important: 回答はすべて日本語で。メニュー名・notes・説明は自然な日本語で書く。距離はkm、時間は分で表記する。
 Return JSON ONLY in the exact same schema as the input plan (weeks/days with km, duration_min, rpe, notes).`;
 }
 
