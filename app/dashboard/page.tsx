@@ -44,8 +44,9 @@ async function loadYear(yearOffset = 0) {
   const to = new Date(year + 1, 0, 1);
   const rows = await prisma.activity.findMany({
     where: { startTime: { gte: from, lt: to } },
-    select: { avgHr: true, durationSec: true },
+    select: { avgHr: true, durationSec: true, distanceM: true, elevationM: true },
   });
+  
   const byZone: Record<ZoneKey, number> = {
     recovery: 0,
     aerobic_endurance: 0,
@@ -54,16 +55,33 @@ async function loadYear(yearOffset = 0) {
     anaerobic_endurance: 0,
     anaerobic_power: 0,
   };
+  
+  let totalDistance = 0;
+  let totalElevation = 0;
+  
   for (const r of rows) {
     const z = getZoneByAvgHr(r.avgHr);
-    if (!z) continue;
-    byZone[z] += r.durationSec ?? 0;
+    if (z) {
+      byZone[z] += r.durationSec ?? 0;
+    }
+    totalDistance += r.distanceM ?? 0;
+    totalElevation += r.elevationM ?? 0;
   }
+  
   const total = sumDurSec(rows);
   const ratio = Object.fromEntries(
     (Object.keys(byZone) as ZoneKey[]).map((k) => [k, total ? byZone[k] / total : 0])
   ) as Record<ZoneKey, number>;
-  return { year, totalSec: total, byZoneSec: byZone, ratio };
+  
+  return { 
+    year, 
+    totalSec: total, 
+    totalDistanceKm: totalDistance / 1000,
+    totalElevationM: totalElevation,
+    byZoneSec: byZone, 
+    ratio,
+    activityCount: rows.length
+  };
 }
 
 function RatioTable({
@@ -107,22 +125,68 @@ export default async function DashboardPage() {
   const cur = await loadYear(0);
   const prev = await loadYear(1);
   const fmtH = (sec: number) => (sec / 3600).toFixed(1);
+  const fmtDist = (km: number) => km.toFixed(1);
+  const fmtElev = (m: number) => Math.round(m).toLocaleString();
+  
   return (
-    <main className="max-w-4xl mx-auto p-8">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
-      <p className="text-sm text-gray-600 mt-1">ゾーン割合は暫定的に平均心拍から推定しています。後で個別ゾーン設定に差し替えます。</p>
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="border rounded p-4">
-          <div className="font-semibold">今年のトレーニング時間</div>
-          <div className="text-2xl">{fmtH(cur.totalSec)} h</div>
+    <main className="max-w-6xl mx-auto p-8">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <p className="text-sm text-gray-600 mt-1">
+          ゾーン割合は暫定的に平均心拍から推定しています。後で個別ゾーン設定に差し替えます。
+        </p>
+      </div>
+      
+      {/* Year comparison metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="text-blue-600 text-sm font-medium">トレーニング時間</div>
+          <div className="text-2xl font-bold text-blue-900 mt-1">{fmtH(cur.totalSec)} h</div>
+          <div className="text-xs text-blue-600 mt-1">
+            昨年: {fmtH(prev.totalSec)} h 
+            <span className={`ml-1 ${cur.totalSec >= prev.totalSec ? 'text-green-600' : 'text-red-600'}`}>
+              ({cur.totalSec >= prev.totalSec ? '+' : ''}{fmtH(cur.totalSec - prev.totalSec)} h)
+            </span>
+          </div>
         </div>
-        <div className="border rounded p-4">
-          <div className="font-semibold">昨年のトレーニング時間</div>
-          <div className="text-2xl">{fmtH(prev.totalSec)} h</div>
+        
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="text-green-600 text-sm font-medium">総距離</div>
+          <div className="text-2xl font-bold text-green-900 mt-1">{fmtDist(cur.totalDistanceKm)} km</div>
+          <div className="text-xs text-green-600 mt-1">
+            昨年: {fmtDist(prev.totalDistanceKm)} km
+            <span className={`ml-1 ${cur.totalDistanceKm >= prev.totalDistanceKm ? 'text-green-600' : 'text-red-600'}`}>
+              ({cur.totalDistanceKm >= prev.totalDistanceKm ? '+' : ''}{fmtDist(cur.totalDistanceKm - prev.totalDistanceKm)} km)
+            </span>
+          </div>
+        </div>
+        
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+          <div className="text-orange-600 text-sm font-medium">総標高</div>
+          <div className="text-2xl font-bold text-orange-900 mt-1">{fmtElev(cur.totalElevationM)} m</div>
+          <div className="text-xs text-orange-600 mt-1">
+            昨年: {fmtElev(prev.totalElevationM)} m
+            <span className={`ml-1 ${cur.totalElevationM >= prev.totalElevationM ? 'text-green-600' : 'text-red-600'}`}>
+              ({cur.totalElevationM >= prev.totalElevationM ? '+' : ''}{fmtElev(cur.totalElevationM - prev.totalElevationM)} m)
+            </span>
+          </div>
+        </div>
+        
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+          <div className="text-purple-600 text-sm font-medium">アクティビティ数</div>
+          <div className="text-2xl font-bold text-purple-900 mt-1">{cur.activityCount}</div>
+          <div className="text-xs text-purple-600 mt-1">
+            昨年: {prev.activityCount}
+            <span className={`ml-1 ${cur.activityCount >= prev.activityCount ? 'text-green-600' : 'text-red-600'}`}>
+              ({cur.activityCount >= prev.activityCount ? '+' : ''}{cur.activityCount - prev.activityCount})
+            </span>
+          </div>
         </div>
       </div>
-      <div className="mt-6">
-        <h2 className="font-semibold mb-2">ゾーン別割合（今年 vs 昨年）</h2>
+      
+      {/* Heart rate zones analysis */}
+      <div className="bg-white border rounded-lg p-6">
+        <h2 className="text-xl font-semibold mb-4">心拍ゾーン別割合（今年 vs 昨年）</h2>
         <RatioTable current={cur.ratio} last={prev.ratio} />
       </div>
     </main>
