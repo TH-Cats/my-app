@@ -16,7 +16,7 @@ async function callGemini(prompt: string) {
   return text;
 }
 
-function buildPrompt(input: {
+function buildCreationPrompt(input: {
   goal: string;
   targetRace?: string;
   periodWeeks: number;
@@ -29,13 +29,21 @@ Target race: ${input.targetRace ?? 'N/A'}
 Constraints: ${input.constraints ?? 'N/A'}
 Recent training summary (last 8 weeks):\n${input.recentSummary}
 
-Return JSON with this schema:
+Return JSON ONLY (no code fences, no prose) with this schema:
 {
   "weeks": [
     {"week": 1, "focus": "...", "total_km": 0, "total_hours": 0, "notes": "...",
      "days": [ {"day": "Mon", "menu": "", "km": 0, "duration_min": 0, "rpe": 0, "notes": ""} ] }
   ]
 }`;
+}
+
+function buildAdjustPrompt(currentPlanJson: string, message: string) {
+  return `You are an elite running coach. Adjust the following training plan based on the user's message. 
+User message: ${message}
+Plan JSON:\n${currentPlanJson}
+
+Return JSON ONLY in the exact same schema as the input plan (weeks/days with km, duration_min, rpe, notes).`;
 }
 
 async function summarizeRecent(userId: string) {
@@ -55,13 +63,34 @@ async function summarizeRecent(userId: string) {
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { goal, targetRace, periodWeeks = 12, constraints, userId = 'seed-user-1' } = body as any;
+    const { goal, targetRace, periodWeeks = 12, constraints, userId = 'seed-user-1', currentPlan, message } = body as any;
 
-    const recent = await summarizeRecent(userId);
-    const prompt = buildPrompt({ goal: goal ?? 'Improve 10K time', targetRace, periodWeeks, constraints, recentSummary: recent });
-    const text = await callGemini(prompt);
+    let text: string;
+    if (currentPlan && message) {
+      const prompt = buildAdjustPrompt(JSON.stringify(currentPlan), message);
+      text = await callGemini(prompt);
+    } else {
+      const recent = await summarizeRecent(userId);
+      const prompt = buildCreationPrompt({ goal: goal ?? 'Improve 10K time', targetRace, periodWeeks, constraints, recentSummary: recent });
+      text = await callGemini(prompt);
+    }
 
-    return Response.json({ plan: text });
+    // Try to parse JSON from model output
+    const cleaned = text.trim().replace(/^```(?:json)?/i, '').replace(/```$/,'');
+    let plan: any;
+    try {
+      plan = JSON.parse(cleaned);
+    } catch {
+      const start = cleaned.indexOf('{');
+      const end = cleaned.lastIndexOf('}');
+      if (start >= 0 && end > start) {
+        plan = JSON.parse(cleaned.slice(start, end + 1));
+      } else {
+        throw new Error('Failed to parse plan JSON');
+      }
+    }
+
+    return Response.json({ plan });
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }
