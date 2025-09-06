@@ -276,9 +276,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     <main className="max-w-6xl mx-auto p-8">
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-sm text-gray-600 mt-1">
-          ゾーン割合は暫定的に平均心拍から推定しています。後で個別ゾーン設定に差し替えます。
-        </p>
+        <p className="text-sm text-gray-600 mt-1">ゾーン割合は暫定的に平均心拍から推定しています。後で個別ゾーン設定に差し替えます。</p>
+        <p className="text-xs text-gray-500">※ 以下の数値は年次集計（1/1〜今日）です。近々「直近1/3/6/12ヶ月」に切替できるフィルタを追加します。</p>
       </div>
       
       {/* Year comparison metrics */}
