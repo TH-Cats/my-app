@@ -63,15 +63,19 @@ export default function Home() {
           <div className="text-xs text-gray-500">AIが提案。チャットで即修正</div>
         </div>
         {todayPlan ? (
-          <div className="mt-2 grid grid-cols-1 md:grid-cols-5 gap-2 text-sm">
-            <div><span className="text-gray-500">種目:</span> {todayPlan.menu || 'Rest'}</div>
-            <div><span className="text-gray-500">距離:</span> {todayPlan.km ?? '-'} km</div>
-            <div><span className="text-gray-500">時間:</span> {todayPlan.duration_min ?? '-'} min</div>
-            <div><span className="text-gray-500">RPE:</span> {todayPlan.rpe ?? '-'}</div>
-            <div className="md:col-span-5"><span className="text-gray-500">メモ:</span> {todayPlan.notes ?? ''}</div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold">{todayPlan.menu || 'Rest / Recovery'}</div>
+            <div className="mt-1 text-gray-700 flex flex-wrap gap-4 text-sm">
+              <div>距離: <span className="font-semibold">{todayPlan.km ?? '-'} km</span></div>
+              <div>時間: <span className="font-semibold">{todayPlan.duration_min ?? '-'} 分</span></div>
+              <div>RPE: <span className="font-semibold">{todayPlan.rpe ?? '-'}</span></div>
+            </div>
+            {todayPlan.notes ? (
+              <div className="mt-1 text-xs text-gray-600">メモ: {todayPlan.notes}</div>
+            ) : null}
           </div>
         ) : (
-          <div className="mt-2 text-sm text-gray-600">プランを生成してください。</div>
+          <div className="mt-2 text-sm text-gray-600">プラン未生成です。「プラン生成」を押してください。</div>
         )}
         <div className="mt-3 flex gap-2">
           <input className="flex-1 border rounded p-2" placeholder="体調や要望（例: 今日は疲れているので短めに）" value={msg} onChange={e=>setMsg(e.target.value)} />
