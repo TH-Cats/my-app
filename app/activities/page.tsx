@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 interface Activity {
@@ -51,7 +51,7 @@ function formatDuration(sec?: number | null) {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-export default function ActivitiesPage() {
+function ActivitiesPageContent() {
   const searchParams = useSearchParams();
   const page = Number(searchParams.get('page') || '1');
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -187,15 +187,15 @@ export default function ActivitiesPage() {
       <div className="flex items-center justify-center mt-8 space-x-4">
         <a
           className={`px-4 py-2 rounded-lg border transition-colors ${
-            page <= 1 
-              ? 'pointer-events-none opacity-40 bg-gray-100' 
+            page <= 1
+              ? 'pointer-events-none opacity-40 bg-gray-100'
               : 'hover:bg-gray-50 border-gray-300'
           }`}
           href={`/activities?page=${Math.max(1, page - 1)}`}
         >
           ← Previous
         </a>
-        
+
         <div className="flex items-center space-x-2">
           <span className="text-sm text-gray-600">Page</span>
           <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded font-medium">
@@ -203,11 +203,11 @@ export default function ActivitiesPage() {
           </span>
           <span className="text-sm text-gray-600">of {totalPages}</span>
         </div>
-        
+
         <a
           className={`px-4 py-2 rounded-lg border transition-colors ${
-            page >= totalPages 
-              ? 'pointer-events-none opacity-40 bg-gray-100' 
+            page >= totalPages
+              ? 'pointer-events-none opacity-40 bg-gray-100'
               : 'hover:bg-gray-50 border-gray-300'
           }`}
           href={`/activities?page=${Math.min(totalPages, page + 1)}`}
@@ -215,12 +215,20 @@ export default function ActivitiesPage() {
           Next →
         </a>
       </div>
-      
+
       {/* Results info */}
       <div className="text-center text-sm text-gray-500 mt-4">
         Showing {((page - 1) * pageSize) + 1}-{Math.min(page * pageSize, total)} of {total} activities
       </div>
     </main>
+  );
+}
+
+export default function ActivitiesPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-8">Loading...</div>}>
+      <ActivitiesPageContent />
+    </Suspense>
   );
 }
 
