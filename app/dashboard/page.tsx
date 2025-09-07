@@ -352,6 +352,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const elevData = monthly.map(p => ({ label: p.ym, value: Math.round(p.elevationM) }));
   const lastYearElevData = lastYearMonthly.map(p => ({ label: p.ym, value: Math.round(p.elevationM) }));
+
+  // Debug: 前年データが存在するか確認
+  console.log('Dashboard Data Debug:', {
+    monthlyRowsCount: monthlyRows.length,
+    lastYearRowsCount: lastYearRows.length,
+    userId,
+    distData: distData.slice(0, 3),
+    lastYearDistData: lastYearDistData.slice(0, 3)
+  });
   const fmtH = (sec: number) => (sec / 3600).toFixed(1);
   const fmtDist = (km: number) => km.toFixed(1);
   const fmtElev = (m: number) => Math.round(m).toLocaleString();

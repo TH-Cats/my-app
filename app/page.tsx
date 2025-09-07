@@ -384,11 +384,13 @@ export default function Home() {
         <div className="mt-6 space-y-3">
           <div className="flex gap-3">
             <input
+              key="chat-input"
               className="flex-1 border-2 border-orange-200 rounded-xl p-3 focus:border-orange-400 focus:ring-2 focus:ring-orange-200 transition-all duration-200 bg-white shadow-sm"
               placeholder="💬 体調や要望を入力（例: 今日は疲れているので短めに）"
               value={msg}
-              onChange={e=>setMsg(e.target.value)}
+              onChange={(e) => setMsg(e.target.value)}
               disabled={false}
+              autoComplete="off"
             />
             <button
               disabled={loading || !plan || !msg}
