@@ -72,6 +72,40 @@ async function importForAthlete(athleteId: string, limitOrYears: number) {
 
   if (!testRes.ok) {
     console.error('Token validation failed:', testRes.status, testRes.statusText);
+    // アクセストークンの自動リフレッシュ（401時）
+    if (testRes.status === 401 && account.refreshToken) {
+      try {
+        const clientId = process.env.STRAVA_CLIENT_ID;
+        const clientSecret = process.env.STRAVA_CLIENT_SECRET;
+        if (!clientId || !clientSecret) throw new Error('Strava credentials not configured');
+        const refreshResp = await fetch('https://www.strava.com/oauth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: clientId,
+            client_secret: clientSecret,
+            grant_type: 'refresh_token',
+            refresh_token: account.refreshToken,
+          })
+        });
+        const refreshData = await refreshResp.json();
+        if (refreshResp.ok && refreshData?.access_token) {
+          await prisma.providerAccount.update({
+            where: { provider_providerUserId: { provider: 'strava', providerUserId: String(athleteId) } },
+            data: {
+              accessToken: refreshData.access_token,
+              refreshToken: refreshData.refresh_token ?? account.refreshToken,
+              expiresAt: refreshData.expires_at ? new Date(refreshData.expires_at * 1000) : account.expiresAt ?? null,
+            }
+          });
+          // リフレッシュ後に再実行
+          return importForAthlete(athleteId, limitOrYears);
+        }
+        console.error('Refresh failed:', refreshData);
+      } catch (err) {
+        console.error('Token refresh error:', err);
+      }
+    }
     return Response.json({
       error: 'Strava access token is invalid or expired',
       status: testRes.status,
