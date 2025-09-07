@@ -50,6 +50,8 @@ model Activity {
   caloriesKcal Int?
   temperatureC Int?
 
+  excludeFromLearning Boolean @default(false)
+
   // Optional JSON payload for raw details
   raw         Json?
 

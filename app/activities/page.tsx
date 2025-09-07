@@ -1,7 +1,23 @@
-import { prisma } from '@/lib/prisma';
+'use client';
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+
+interface Activity {
+  id: string;
+  provider: string;
+  providerId: string;
+  type: string | null;
+  startTime: Date | null;
+  durationSec: number | null;
+  distanceM: number | null;
+  elevationM: number | null;
+  avgHr: number | null;
+  avgCadence: number | null;
+  caloriesKcal: number | null;
+  temperatureC: number | null;
+  excludeFromLearning: boolean;
+}
 
 function formatDistance(m?: number | null) {
   if (m == null) return '-';
@@ -28,24 +44,61 @@ function formatDuration(sec?: number | null) {
   const hours = Math.floor(sec / 3600);
   const minutes = Math.floor((sec % 3600) / 60);
   const seconds = sec % 60;
-  
+
   if (hours > 0) {
     return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-export default async function ActivitiesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
-  const params = await searchParams;
-  const page = Number(params?.page || '1');
+export default function ActivitiesPage() {
+  const searchParams = useSearchParams();
+  const page = Number(searchParams.get('page') || '1');
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+
   const pageSize = 20;
-  const activities = await prisma.activity.findMany({
-    orderBy: { startTime: 'desc' },
-    skip: (page - 1) * pageSize,
-    take: pageSize,
-  });
-  const total = await prisma.activity.count();
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  useEffect(() => {
+    async function fetchActivities() {
+      setLoading(true);
+      try {
+        const response = await fetch(`/api/activities?page=${page}`);
+        const data = await response.json();
+        setActivities(data.activities);
+        setTotal(data.total);
+      } catch (error) {
+        console.error('Failed to fetch activities:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchActivities();
+  }, [page]);
+
+  const handleExcludeToggle = async (activityId: string, excludeFromLearning: boolean) => {
+    try {
+      const response = await fetch(`/api/activities/${activityId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ excludeFromLearning }),
+      });
+      if (response.ok) {
+        // Update local state
+        setActivities(activities.map(a =>
+          a.id === activityId ? { ...a, excludeFromLearning } : a
+        ));
+      } else {
+        console.error('Failed to update activity');
+      }
+    } catch (error) {
+      console.error('Failed to update activity:', error);
+    }
+  };
 
   return (
     <main className="max-w-6xl mx-auto p-8">
@@ -55,65 +108,80 @@ export default async function ActivitiesPage({ searchParams }: { searchParams: P
           {total} activities total
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-3">
-        {activities.map((a) => (
-          <div key={a.id} className="border rounded p-4">
-            <div className="flex items-center justify-between text-sm text-gray-500">
-              <span>
-                {a.provider.toUpperCase()} #{a.providerId}
-              </span>
-              {a.provider === 'strava' ? (
-                <a
-                  className="underline hover:no-underline"
-                  href={`https://www.strava.com/activities/${a.providerId}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open in Strava ↗
-                </a>
-              ) : null}
+      {loading ? (
+        <div className="text-center py-8">
+          <div className="text-gray-500">Loading activities...</div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3">
+          {activities.map((a) => (
+            <div key={a.id} className="border rounded p-4">
+              <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
+                <div className="flex items-center gap-4">
+                  <span>
+                    {a.provider.toUpperCase()} #{a.providerId}
+                  </span>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={a.excludeFromLearning}
+                      onChange={(e) => handleExcludeToggle(a.id, e.target.checked)}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-xs">学習から除外</span>
+                  </label>
+                </div>
+                {a.provider === 'strava' ? (
+                  <a
+                    className="underline hover:no-underline"
+                    href={`https://www.strava.com/activities/${a.providerId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open in Strava ↗
+                  </a>
+                ) : null}
+              </div>
+
+              {/* Primary metrics */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                <div className="bg-blue-50 p-2 rounded">
+                  <div className="text-xs text-gray-500">Distance</div>
+                  <div className="font-semibold">{formatDistance(a.distanceM)}</div>
+                </div>
+                <div className="bg-green-50 p-2 rounded">
+                  <div className="text-xs text-gray-500">Duration</div>
+                  <div className="font-semibold">{formatDuration(a.durationSec)}</div>
+                </div>
+                <div className="bg-orange-50 p-2 rounded">
+                  <div className="text-xs text-gray-500">Pace</div>
+                  <div className="font-semibold">{formatPace(a.distanceM, a.durationSec)}</div>
+                </div>
+                <div className="bg-red-50 p-2 rounded">
+                  <div className="text-xs text-gray-500">Avg HR</div>
+                  <div className="font-semibold">{a.avgHr ?? '-'} {a.avgHr ? 'bpm' : ''}</div>
+                </div>
+              </div>
+
+              {/* Secondary metrics */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div>
+                  <span className="text-gray-500">Elevation:</span> {a.elevationM ?? '-'} {a.elevationM ? 'm' : ''}
+                </div>
+                <div>
+                  <span className="text-gray-500">Cadence:</span> {a.avgCadence ?? '-'} {a.avgCadence ? 'spm' : ''}
+                </div>
+                <div>
+                  <span className="text-gray-500">Calories:</span> {a.caloriesKcal ?? '-'} {a.caloriesKcal ? 'kcal' : ''}
+                </div>
+                <div>
+                  <span className="text-gray-500">Temp:</span> {a.temperatureC ?? '-'} {a.temperatureC ? '°C' : ''}
+                </div>
+              </div>
             </div>
-            <div className="font-semibold text-lg mb-2">{a.type ?? 'unknown'}</div>
-            <div className="text-sm text-gray-600 mb-3">{formatDate(a.startTime)}</div>
-            
-            {/* Primary metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-              <div className="bg-blue-50 p-2 rounded">
-                <div className="text-xs text-gray-500">Distance</div>
-                <div className="font-semibold">{formatDistance(a.distanceM)}</div>
-              </div>
-              <div className="bg-green-50 p-2 rounded">
-                <div className="text-xs text-gray-500">Duration</div>
-                <div className="font-semibold">{formatDuration(a.durationSec)}</div>
-              </div>
-              <div className="bg-orange-50 p-2 rounded">
-                <div className="text-xs text-gray-500">Pace</div>
-                <div className="font-semibold">{formatPace(a.distanceM, a.durationSec)}</div>
-              </div>
-              <div className="bg-red-50 p-2 rounded">
-                <div className="text-xs text-gray-500">Avg HR</div>
-                <div className="font-semibold">{a.avgHr ?? '-'} {a.avgHr ? 'bpm' : ''}</div>
-              </div>
-            </div>
-            
-            {/* Secondary metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-              <div>
-                <span className="text-gray-500">Elevation:</span> {a.elevationM ?? '-'} {a.elevationM ? 'm' : ''}
-              </div>
-              <div>
-                <span className="text-gray-500">Cadence:</span> {a.avgCadence ?? '-'} {a.avgCadence ? 'spm' : ''}
-              </div>
-              <div>
-                <span className="text-gray-500">Calories:</span> {a.caloriesKcal ?? '-'} {a.caloriesKcal ? 'kcal' : ''}
-              </div>
-              <div>
-                <span className="text-gray-500">Temp:</span> {a.temperatureC ?? '-'} {a.temperatureC ? '°C' : ''}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Pagination */}
       <div className="flex items-center justify-center mt-8 space-x-4">

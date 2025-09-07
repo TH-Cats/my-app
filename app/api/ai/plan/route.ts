@@ -22,12 +22,14 @@ function buildCreationPrompt(input: {
   periodWeeks: number;
   constraints?: string;
   recentSummary: string;
+  method?: string;
 }) {
   return `You are an elite running coach. Build a ${input.periodWeeks}-week training plan.
 Goal: ${input.goal}
 Target race: ${input.targetRace ?? 'N/A'}
 Constraints: ${input.constraints ?? 'N/A'}
 Recent training summary (last 8 weeks):\n${input.recentSummary}
+Reference method: ${input.method ?? 'coach best practice'}
 
 Important: 回答はすべて日本語で。メニュー名・notes・説明は自然な日本語で書く。距離はkm、時間は分で表記する。
 Return JSON ONLY (no code fences, no prose) with this schema:
@@ -39,10 +41,11 @@ Return JSON ONLY (no code fences, no prose) with this schema:
 }`;
 }
 
-function buildAdjustPrompt(currentPlanJson: string, message: string) {
+function buildAdjustPrompt(currentPlanJson: string, message: string, method?: string) {
   return `You are an elite running coach. Adjust the following training plan based on the user's message. 
 User message: ${message}
 Plan JSON:\n${currentPlanJson}
+Reference method: ${method ?? 'coach best practice'}
 
 Important: 回答はすべて日本語で。メニュー名・notes・説明は自然な日本語で書く。距離はkm、時間は分で表記する。
 Return JSON ONLY in the exact same schema as the input plan (weeks/days with km, duration_min, rpe, notes).`;
@@ -65,15 +68,15 @@ async function summarizeRecent(userId: string) {
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { goal, targetRace, periodWeeks = 12, constraints, userId = 'seed-user-1', currentPlan, message } = body as any;
+    const { goal, targetRace, periodWeeks = 12, constraints, userId = 'seed-user-1', currentPlan, message, method } = body as any;
 
     let text: string;
     if (currentPlan && message) {
-      const prompt = buildAdjustPrompt(JSON.stringify(currentPlan), message);
+      const prompt = buildAdjustPrompt(JSON.stringify(currentPlan), message, method);
       text = await callGemini(prompt);
     } else {
       const recent = await summarizeRecent(userId);
-      const prompt = buildCreationPrompt({ goal: goal ?? 'Improve 10K time', targetRace, periodWeeks, constraints, recentSummary: recent });
+      const prompt = buildCreationPrompt({ goal: goal ?? 'Improve 10K time', targetRace, periodWeeks, constraints, recentSummary: recent, method });
       text = await callGemini(prompt);
     }
 

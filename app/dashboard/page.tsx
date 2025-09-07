@@ -206,12 +206,12 @@ async function loadPeriod(months: number, yearOffset = 0) {
 
 type MonthlyPoint = { ym: string; distanceKm: number; hours: number; elevationM: number };
 
-function buildMonthly(pointsFromRows: { startTime: Date | null; distanceM: number | null; durationSec: number | null; elevationM: number | null; }[], months = 12): MonthlyPoint[] {
+function buildMonthly(pointsFromRows: { startTime: Date | null; distanceM: number | null; durationSec: number | null; elevationM: number | null; }[], months = 12, yearOffset = 0): MonthlyPoint[] {
   const buckets = new Map<string, MonthlyPoint>();
   // initialize buckets for latest N months so we always render the axis
   const cursor = new Date();
   for (let i = months - 1; i >= 0; i--) {
-    const d = new Date(cursor.getFullYear(), cursor.getMonth() - i, 1);
+    const d = new Date(cursor.getFullYear() - yearOffset, cursor.getMonth() - i, 1);
     const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     buckets.set(ym, { ym, distanceKm: 0, hours: 0, elevationM: 0 });
   }
@@ -228,16 +228,47 @@ function buildMonthly(pointsFromRows: { startTime: Date | null; distanceM: numbe
   return Array.from(buckets.values());
 }
 
-function MiniBarChart({ data, color = '#3b82f6', label, valueFormatter }:{ data: { label: string; value: number }[]; color?: string; label: string; valueFormatter?: (v:number)=>string; }) {
-  const max = Math.max(1, ...data.map(d => d.value));
+function MiniBarChart({
+  data,
+  overlayData,
+  color = '#3b82f6',
+  overlayColor = '#e5e7eb',
+  label,
+  valueFormatter
+}:{
+  data: { label: string; value: number }[];
+  overlayData?: { label: string; value: number }[];
+  color?: string;
+  overlayColor?: string;
+  label: string;
+  valueFormatter?: (v:number)=>string;
+}) {
+  const max = Math.max(1, ...data.map(d => d.value), ...(overlayData?.map(d => d.value) ?? []));
   const h = 120;
   return (
     <div className="bg-white border rounded-lg p-4">
       <div className="text-sm text-gray-600 mb-2">{label}</div>
       <div className="flex items-end gap-2 h-[120px]">
         {data.map((d, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center">
-            <div className="w-full rounded-t" style={{ height: `${(d.value / max) * (h - 20)}px`, backgroundColor: color }} />
+          <div key={i} className="flex-1 flex flex-col items-center relative">
+            {/* 前年データ (薄い色で背景) */}
+            {overlayData?.[i] && (
+              <div
+                className="absolute bottom-0 w-full rounded-t opacity-60"
+                style={{
+                  height: `${(overlayData[i].value / max) * (h - 20)}px`,
+                  backgroundColor: overlayColor
+                }}
+              />
+            )}
+            {/* 今年データ (前面) */}
+            <div
+              className="relative w-full rounded-t"
+              style={{
+                height: `${(d.value / max) * (h - 20)}px`,
+                backgroundColor: color
+              }}
+            />
             <div className="mt-1 text-[10px] text-gray-500">{d.label.split('-')[1]}</div>
           </div>
         ))}
@@ -264,10 +295,29 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     select: { startTime: true, distanceM: true, durationSec: true, elevationM: true },
     orderBy: { startTime: 'asc' },
   });
-  const monthly = buildMonthly(monthlyRows, 12);
+  const monthly = buildMonthly(monthlyRows, 12, 0);
+
+  // last year's monthly trends for overlay
+  const lastYearRows = await prisma.activity.findMany({
+    where: {
+      startTime: {
+        gte: new Date(new Date().getFullYear() - 1, new Date().getMonth() - 11, 1),
+        lt: new Date(new Date().getFullYear() - 1, new Date().getMonth() + 1, 1)
+      }
+    },
+    select: { startTime: true, distanceM: true, durationSec: true, elevationM: true },
+    orderBy: { startTime: 'asc' },
+  });
+  const lastYearMonthly = buildMonthly(lastYearRows, 12, 1);
+
   const distData = monthly.map(p => ({ label: p.ym, value: Number(p.distanceKm.toFixed(1)) }));
+  const lastYearDistData = lastYearMonthly.map(p => ({ label: p.ym, value: Number(p.distanceKm.toFixed(1)) }));
+
   const timeData = monthly.map(p => ({ label: p.ym, value: Number(p.hours.toFixed(1)) }));
+  const lastYearTimeData = lastYearMonthly.map(p => ({ label: p.ym, value: Number(p.hours.toFixed(1)) }));
+
   const elevData = monthly.map(p => ({ label: p.ym, value: Math.round(p.elevationM) }));
+  const lastYearElevData = lastYearMonthly.map(p => ({ label: p.ym, value: Math.round(p.elevationM) }));
   const fmtH = (sec: number) => (sec / 3600).toFixed(1);
   const fmtDist = (km: number) => km.toFixed(1);
   const fmtElev = (m: number) => Math.round(m).toLocaleString();
@@ -329,9 +379,30 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       
       {/* Monthly trends (last 12 months) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <MiniBarChart label="月別距離 (km)" color="#60a5fa" data={distData} valueFormatter={(v)=>`${v.toFixed(1)} km`} />
-        <MiniBarChart label="月別時間 (h)" color="#34d399" data={timeData} valueFormatter={(v)=>`${v.toFixed(1)} h`} />
-        <MiniBarChart label="月別標高 (m)" color="#fb923c" data={elevData} valueFormatter={(v)=>`${Math.round(v)} m`} />
+        <MiniBarChart
+          label="月別距離 (km)"
+          color="#60a5fa"
+          overlayColor="#dbeafe"
+          data={distData}
+          overlayData={lastYearDistData}
+          valueFormatter={(v)=>`${v.toFixed(1)} km`}
+        />
+        <MiniBarChart
+          label="月別時間 (h)"
+          color="#34d399"
+          overlayColor="#d1fae5"
+          data={timeData}
+          overlayData={lastYearTimeData}
+          valueFormatter={(v)=>`${v.toFixed(1)} h`}
+        />
+        <MiniBarChart
+          label="月別標高 (m)"
+          color="#fb923c"
+          overlayColor="#fed7aa"
+          data={elevData}
+          overlayData={lastYearElevData}
+          valueFormatter={(v)=>`${Math.round(v)} m`}
+        />
       </div>
 
       {/* Period selector and zone analysis */}
