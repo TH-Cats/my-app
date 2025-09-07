@@ -26,43 +26,53 @@ export default function Home() {
   const [goals, setGoals] = useState<Array<{ race?: string; date?: string; target?: string; note?: string }>>([]);
 
   useEffect(() => {
-    try {
-      const p = localStorage.getItem('ai-plan');
-      if (p) {
-        try {
-          const parsed = JSON.parse(p);
-          setPlan(parsed);
-        } catch {
-          // 古い形式（プレーンテキストなど）は一度破棄
-          localStorage.removeItem('ai-plan');
-        }
-      } else {
-        generate();
-      }
-      const g = localStorage.getItem('ai-goals');
-      if (g) { try { setGoals(JSON.parse(g)); } catch {} }
-
-      // Stravaデータの自動インポート（初回のみ）
-      const hasImported = localStorage.getItem('strava-imported');
-      if (!hasImported) {
-        try {
-          const importResult = await fetch('/api/strava/import', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ years: 2 })
-          }).then(r => r.json());
-
-          if (importResult.ok) {
-            localStorage.setItem('strava-imported', 'true');
-            console.log('Strava data imported:', importResult);
+    const initializeApp = async () => {
+      try {
+        const p = localStorage.getItem('ai-plan');
+        if (p) {
+          try {
+            const parsed = JSON.parse(p);
+            setPlan(parsed);
+          } catch {
+            // 古い形式（プレーンテキストなど）は一度破棄
+            localStorage.removeItem('ai-plan');
           }
-        } catch (error) {
-          console.log('Strava import skipped (no account or error):', error);
+        } else {
+          generate();
         }
+        const g = localStorage.getItem('ai-goals');
+        if (g) { try { setGoals(JSON.parse(g)); } catch {} }
+
+        // Stravaデータの自動インポート（初回のみ）
+        const hasImported = localStorage.getItem('strava-imported');
+        if (!hasImported) {
+          console.log('Attempting to import Strava data...');
+          try {
+            const importResult = await fetch('/api/strava/import', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ years: 2 })
+            });
+
+            if (importResult.ok) {
+              const data = await importResult.json();
+              localStorage.setItem('strava-imported', 'true');
+              console.log('Strava data imported successfully:', data);
+            } else {
+              const errorData = await importResult.json();
+              console.log('Strava import failed:', errorData);
+            }
+          } catch (error) {
+            console.log('Strava import error:', error);
+            // インポートに失敗してもアプリは動作するので、エラーを無視
+          }
+        }
+      } catch {
+        // localStorage 不可時は無視
       }
-    } catch {
-      // localStorage 不可時は無視
-    }
+    };
+
+    initializeApp();
   }, []);
 
   const generate = async () => {
@@ -378,6 +388,7 @@ export default function Home() {
               placeholder="💬 体調や要望を入力（例: 今日は疲れているので短めに）"
               value={msg}
               onChange={e=>setMsg(e.target.value)}
+              disabled={false}
             />
             <button
               disabled={loading || !plan || !msg}

@@ -37,13 +37,26 @@ function sumDurSec(list: { durationSec: number | null }[]) {
   return list.reduce((acc, x) => acc + (x.durationSec ?? 0), 0);
 }
 
-async function loadYear(yearOffset = 0) {
+async function loadYear(yearOffset = 0, userId?: string) {
   const now = new Date();
   const year = now.getFullYear() - yearOffset;
   const from = new Date(year, 0, 1);
   const to = new Date(year + 1, 0, 1);
+
+  // ユーザーIDを取得（なければ最初のユーザーを使う）
+  let targetUserId = userId;
+  if (!targetUserId) {
+    const user = await prisma.user.findFirst();
+    if (user) {
+      targetUserId = user.id;
+    }
+  }
+
   const rows = await prisma.activity.findMany({
-    where: { startTime: { gte: from, lt: to } },
+    where: {
+      startTime: { gte: from, lt: to },
+      ...(targetUserId && { userId: targetUserId })
+    },
     select: { avgHr: true, durationSec: true, distanceM: true, elevationM: true },
   });
   
@@ -162,10 +175,23 @@ function getPeriodRange(months: number, yearOffset = 0) {
   return { from, to };
 }
 
-async function loadPeriod(months: number, yearOffset = 0) {
+async function loadPeriod(months: number, yearOffset = 0, userId?: string) {
   const { from, to } = getPeriodRange(months, yearOffset);
+
+  // ユーザーIDを取得（なければ最初のユーザーを使う）
+  let targetUserId = userId;
+  if (!targetUserId) {
+    const user = await prisma.user.findFirst();
+    if (user) {
+      targetUserId = user.id;
+    }
+  }
+
   const rows = await prisma.activity.findMany({
-    where: { startTime: { gte: from, lt: to } },
+    where: {
+      startTime: { gte: from, lt: to },
+      ...(targetUserId && { userId: targetUserId })
+    },
     select: { avgHr: true, durationSec: true, distanceM: true, elevationM: true, startTime: true },
     orderBy: { startTime: 'asc' },
   });
@@ -289,9 +315,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const curPeriod = await loadPeriod(m, 0);
   const prevPeriod = await loadPeriod(m, 1);
 
+  // ユーザーIDを取得
+  const user = await prisma.user.findFirst();
+  const userId = user?.id;
+
   // monthly trends: last 12 months
   const monthlyRows = await prisma.activity.findMany({
-    where: { startTime: { gte: new Date(new Date().getFullYear(), new Date().getMonth() - 11, 1) } },
+    where: {
+      startTime: { gte: new Date(new Date().getFullYear(), new Date().getMonth() - 11, 1) },
+      ...(userId && { userId })
+    },
     select: { startTime: true, distanceM: true, durationSec: true, elevationM: true },
     orderBy: { startTime: 'asc' },
   });
@@ -303,7 +336,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       startTime: {
         gte: new Date(new Date().getFullYear() - 1, new Date().getMonth() - 11, 1),
         lt: new Date(new Date().getFullYear() - 1, new Date().getMonth() + 1, 1)
-      }
+      },
+      ...(userId && { userId })
     },
     select: { startTime: true, distanceM: true, durationSec: true, elevationM: true },
     orderBy: { startTime: 'asc' },

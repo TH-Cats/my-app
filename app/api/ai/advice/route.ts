@@ -132,7 +132,10 @@ export async function POST(req: Request) {
     const { userId, today, period = '2years' } = body as any;
 
     // 実際のユーザーIDを取得（指定がない場合は自動取得）
-    const actualUserId = userId || await getActualUserId();
+    let actualUserId = userId;
+    if (!actualUserId) {
+      actualUserId = await getActualUserId();
+    }
 
     // 過去データを取得・分析
     const data = await summarizeRecent(actualUserId, period);
