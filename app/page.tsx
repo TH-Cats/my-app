@@ -52,11 +52,21 @@ export default function Home() {
         if (justConnected || !hasImported) {
           console.log('Attempting to import Strava data...');
           try {
-            const importResult = await fetch('/api/strava/import', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ years: 2 })
-            });
+            // 分割インポート: 1回に最大1ページまで取り込み、続きがあればループ
+            let pageNo = 1;
+            let totalImported = 0;
+            for (let i=0;i<10;i++) { // 安全のため最大10リクエスト
+              const importResult = await fetch('/api/strava/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ years: 2, startPage: pageNo, maxPages: 1 })
+              });
+              if (!importResult.ok) break;
+              const data = await importResult.json();
+              totalImported += data.imported || 0;
+              if (!data.hasMore) break;
+              pageNo = data.nextPage || (pageNo + 1);
+            }
 
             if (importResult.ok) {
               const data = await importResult.json();

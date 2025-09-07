@@ -29,7 +29,7 @@ async function resolveAccountByDefault() {
   return { user, account: prov } as const;
 }
 
-async function importForAthlete(athleteId: string, limitOrYears: number) {
+async function importForAthlete(athleteId: string, limitOrYears: number, startPage = 1, maxPages = 1) {
   // Prefer direct provider account lookup
   let user = null as any;
   let account = await prisma.providerAccount.findUnique({
@@ -118,9 +118,11 @@ async function importForAthlete(athleteId: string, limitOrYears: number) {
   // Treat the second argument as years if >= 5, otherwise as per_page limit for legacy use
   const years = limitOrYears && limitOrYears > 100 ? 2 : 2; // default 2 years
   const afterEpoch = Math.floor((Date.now() - years * 365 * 24 * 3600 * 1000) / 1000);
-  let page = 1;
+  let page = Math.max(1, startPage);
   const perPage = 200; // Strava max
   let created = 0;
+  let processedPages = 0;
+  let lastBatchLen = 0;
   while (true) {
     const url = `https://www.strava.com/api/v3/athlete/activities?per_page=${perPage}&page=${page}&after=${afterEpoch}`;
     console.log('Fetching Strava activities:', { url, page, afterEpoch });
@@ -176,7 +178,8 @@ async function importForAthlete(athleteId: string, limitOrYears: number) {
         parseError: (parseError as any).message
       }, { status: 502 });
     }
-    if (!Array.isArray(activities) || activities.length === 0) break;
+    if (!Array.isArray(activities) || activities.length === 0) { lastBatchLen = 0; break; }
+    lastBatchLen = activities.length;
     for (const a of activities as any[]) {
       const sport = (a.sport_type || a.type || '').toLowerCase();
       if (sport === 'walk' || sport === 'walking') continue; // exclude walking
@@ -223,23 +226,26 @@ async function importForAthlete(athleteId: string, limitOrYears: number) {
         // データベースエラーの場合も処理を継続
       }
     }
+    processedPages += 1;
     if (activities.length < perPage) break;
+    if (processedPages >= Math.max(1, maxPages)) break;
     page += 1;
     if (page > 50) break; // safety
   }
-  return Response.json({ ok: true, imported: created, range: { years } });
+  const hasMore = lastBatchLen === perPage && page < 50;
+  return Response.json({ ok: true, imported: created, range: { years }, nextPage: page + 1, hasMore });
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { athleteId, years = 2 } = await request.json().catch(() => ({}));
+    const { athleteId, years = 2, startPage = 1, maxPages = 1 } = await request.json().catch(() => ({}));
     if (athleteId) {
-      return importForAthlete(String(athleteId), Number(years ?? 2));
+      return importForAthlete(String(athleteId), Number(years ?? 2), Number(startPage ?? 1), Number(maxPages ?? 1));
     }
     // default account
     const def = await resolveAccountByDefault();
     if (!def) return Response.json({ error: 'No Strava account connected' }, { status: 404 });
-    return importForAthlete(def.account.providerUserId, Number(years ?? 2));
+    return importForAthlete(def.account.providerUserId, Number(years ?? 2), Number(startPage ?? 1), Number(maxPages ?? 1));
   } catch (e) {
     console.error('Import POST error:', e);
     return Response.json({ error: 'Internal server error', detail: (e as any)?.message || String(e) }, { status: 500 });
@@ -251,10 +257,12 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const athleteId = url.searchParams.get('athleteId');
     const years = Number(url.searchParams.get('years') || '2');
-    if (athleteId) return importForAthlete(athleteId, years);
+    const startPage = Number(url.searchParams.get('startPage') || '1');
+    const maxPages = Number(url.searchParams.get('maxPages') || '1');
+    if (athleteId) return importForAthlete(athleteId, years, startPage, maxPages);
     const def = await resolveAccountByDefault();
     if (!def) return Response.json({ error: 'No Strava account connected' }, { status: 404 });
-    return importForAthlete(def.account.providerUserId, years);
+    return importForAthlete(def.account.providerUserId, years, startPage, maxPages);
   } catch (e) {
     console.error('Import GET error:', e);
     return Response.json({ error: 'Internal server error', detail: (e as any)?.message || String(e) }, { status: 500 });
