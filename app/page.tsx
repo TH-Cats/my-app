@@ -161,28 +161,85 @@ export default function Home() {
       </header>
       <div className="max-w-6xl mx-auto p-6">
 
-      <section className="bg-white border rounded p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">本日のメニュー</h2>
+      <section className="card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
+            🔥 本日のメニュー
+          </h2>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-blue-500 rounded-full animate-pulse"></div>
+            <span className="text-sm text-gray-600">今日のチャレンジ</span>
+          </div>
         </div>
         {todayPlan ? (
-          <div className="mt-3">
-            <div className="text-2xl font-bold">{todayPlan.menu || 'Rest / Recovery'}</div>
-            <div className="mt-1 text-gray-700 flex flex-wrap gap-4 text-sm">
-              <div>距離: <span className="font-semibold">{todayPlan.km ?? '-'} km</span></div>
-              <div>時間: <span className="font-semibold">{todayPlan.duration_min ?? '-'} 分</span></div>
-              <div>RPE: <span className="font-semibold">{todayPlan.rpe ?? '-'}</span></div>
+          <div className="space-y-4">
+            <div className="text-center">
+              <div className="text-3xl font-black bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 bg-clip-text text-transparent mb-2">
+                {todayPlan.menu || 'Rest / Recovery'}
+              </div>
+              <div className="w-16 h-1 bg-gradient-to-r from-orange-400 to-red-500 mx-auto rounded-full"></div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+              <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                <div className="text-2xl mb-1">🏃‍♂️</div>
+                <div className="text-xs text-gray-600">距離</div>
+                <div className="font-bold text-lg text-blue-700">{todayPlan.km ?? '-'} km</div>
+              </div>
+
+              <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                <div className="text-2xl mb-1">⏱️</div>
+                <div className="text-xs text-gray-600">時間</div>
+                <div className="font-bold text-lg text-green-700">{todayPlan.duration_min ?? '-'} 分</div>
+              </div>
+
+              <div className="text-center p-4 bg-gradient-to-br from-yellow-50 to-amber-50 rounded-xl border border-yellow-200">
+                <div className="text-xs text-gray-600">強度</div>
+                <div className="font-bold text-lg text-yellow-700">{todayPlan.rpe ?? '-'}</div>
+                <div className="text-xs text-gray-500">RPE</div>
+              </div>
+
               {formatPaceJa(todayPlan.km, todayPlan.duration_min) ? (
-                <div>ペース: <span className="font-semibold">{formatPaceJa(todayPlan.km, todayPlan.duration_min)}</span></div>
+                <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-200">
+                  <div className="text-2xl mb-1">⚡</div>
+                  <div className="text-xs text-gray-600">ペース</div>
+                  <div className="font-bold text-lg text-purple-700">{formatPaceJa(todayPlan.km, todayPlan.duration_min)}</div>
+                </div>
               ) : null}
             </div>
             {todayPlan?.intervals && Array.isArray((todayPlan as any).intervals) && (todayPlan as any).intervals.length > 0 ? (
-              <div className="mt-2 text-sm text-gray-800">
-                インターバル: {(todayPlan as any).intervals.map((it:any,i:number)=>{
-                  const rep = it.repeat ? `${it.repeat}×` : '';
-                  const dist = it.distance_m ? `${Math.round(it.distance_m)}m` : (it.duration_min? `${it.duration_min}分`:'');
-                  const rest = it.rest ? ` (レスト ${it.rest})` : '';
-                  return `${rep}${dist}${rest}`;}).join(', ')}
+              <div className="mt-4">
+                <div className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <div className="w-2 h-2 bg-gradient-to-r from-orange-400 to-red-500 rounded-full"></div>
+                  インターバル詳細
+                </div>
+                <div className="space-y-2">
+                  {(todayPlan as any).intervals.map((it:any,i:number)=>{
+                    const rep = it.repeat ? `${it.repeat}×` : '';
+                    const dist = it.distance_m ? `${Math.round(it.distance_m)}m` : (it.duration_min? `${it.duration_min}分`:'');
+                    const rest = it.rest ? `レスト ${it.rest}` : '';
+                    const pace = it.pace ? ` @ ${it.pace}` : '';
+                    const intensity = it.intensity ? ` (${it.intensity})` : '';
+
+                    return (
+                      <div key={i} className="flex items-center gap-3 p-3 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg border border-orange-200">
+                        <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-orange-400 to-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                          {i+1}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-semibold text-gray-800">
+                            {rep}{dist}{pace}{intensity}
+                          </div>
+                          {rest && (
+                            <div className="text-sm text-gray-600 mt-1">
+                              {rest}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : null}
             {todayPlan.notes ? (
@@ -195,21 +252,65 @@ export default function Home() {
         ) : (
           <div className="mt-2 text-sm text-gray-600">プラン未生成です。「プラン生成」を押してください。</div>
         )}
-        <div className="mt-3 flex gap-2">
-          <input className="flex-1 border rounded p-2" placeholder="体調や要望（例: 今日は疲れているので短めに）" value={msg} onChange={e=>setMsg(e.target.value)} />
-          <button disabled={loading || !plan || !msg} onClick={async ()=>{
-            const method = (typeof window!== 'undefined' ? localStorage.getItem('ai-method') : '') || undefined;
-            setLoading(true);
-            try {
-              const res = await fetch('/api/ai/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPlan: plan, message: msg, method }) });
-              const data = await res.json();
-              setPlan(data.plan);
-              localStorage.setItem('ai-plan', JSON.stringify(data.plan));
-              setMsg('');
-            } finally { setLoading(false); }
-          }} className="px-3 py-2 rounded bg-green-600 text-white disabled:opacity-50">調整を反映</button>
-          <a href="/plan" className="px-3 py-2 rounded border">プラン</a>
-          <a href="/plan" className="px-3 py-2 rounded border">詳細を開く</a>
+        <div className="mt-6 space-y-3">
+          <div className="flex gap-3">
+            <input
+              className="flex-1 border-2 border-orange-200 rounded-xl p-3 focus:border-orange-400 focus:ring-2 focus:ring-orange-200 transition-all duration-200 bg-white shadow-sm"
+              placeholder="💬 体調や要望を入力（例: 今日は疲れているので短めに）"
+              value={msg}
+              onChange={e=>setMsg(e.target.value)}
+            />
+            <button
+              disabled={loading || !plan || !msg}
+              onClick={async ()=>{
+                const method = (typeof window!== 'undefined' ? localStorage.getItem('ai-method') : '') || undefined;
+                setLoading(true);
+                try {
+                  const res = await fetch('/api/ai/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPlan: plan, message: msg, method }) });
+                  const data = await res.json();
+                  setPlan(data.plan);
+                  localStorage.setItem('ai-plan', JSON.stringify(data.plan));
+                  setMsg('');
+                } finally { setLoading(false); }
+              }}
+              className="btn-primary px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  調整中...
+                </>
+              ) : (
+                <>
+                  🚀 調整を反映
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="flex gap-2">
+            {!plan && (
+              <button
+                onClick={generate}
+                disabled={loading}
+                className="btn-secondary px-4 py-2 flex items-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    生成中...
+                  </>
+                ) : (
+                  <>
+                    ✨ 新規生成
+                  </>
+                )}
+              </button>
+            )}
+            <a href="/plan" className="btn-primary px-4 py-2 inline-flex items-center gap-2">
+              📋 プラン詳細
+            </a>
+          </div>
         </div>
         {advice?.recent ? (
           <div className="mt-2 text-xs text-gray-600">直近所見: {advice.recent}</div>
