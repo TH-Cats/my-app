@@ -30,12 +30,27 @@ async function resolveAccountByDefault() {
 }
 
 async function importForAthlete(athleteId: string, limitOrYears: number) {
-  const lookupEmail = `strava_${athleteId}@example.local`;
-  const found = await getStravaAccount(lookupEmail);
-  if (!found) {
-    return Response.json({ error: 'Strava account not found in DB' }, { status: 404 });
+  // Prefer direct provider account lookup
+  let user = null as any;
+  let account = await prisma.providerAccount.findUnique({
+    where: { provider_providerUserId: { provider: 'strava', providerUserId: String(athleteId) } },
+  });
+  if (account) {
+    user = await prisma.user.findUnique({ where: { id: account.userId } });
   }
-  const { user, account } = found;
+  if (!account || !user) {
+    // Fallback to legacy email mapping if needed
+    const legacyEmail = `strava_${athleteId}@example.local`;
+    const legacy = await getStravaAccount(legacyEmail);
+    if (!legacy) {
+      return Response.json({ error: 'Strava account not found in DB', suggestion: '設定から再度Strava連携を実行してください' }, { status: 404 });
+    }
+    user = legacy.user;
+    account = legacy.account as any;
+  }
+  if (!account) {
+    return Response.json({ error: 'Strava account not found after lookup' }, { status: 404 });
+  }
   const accessToken = account.accessToken;
 
   // トークンの有効性を確認（タイムアウト付き）
@@ -89,7 +104,8 @@ async function importForAthlete(athleteId: string, limitOrYears: number) {
           suggestion: 'Try again later or reduce the date range'
         }, { status: 408 });
       }
-      throw fetchError;
+      console.error('Fetch activities failed:', fetchError);
+      return Response.json({ error: 'Failed to fetch from Strava', detail: (fetchError as any)?.message || String(fetchError) }, { status: 502 });
     }
 
     console.log('Strava API response:', { status: res.status, statusText: res.statusText });
@@ -123,9 +139,8 @@ async function importForAthlete(athleteId: string, limitOrYears: number) {
       console.error('JSON parse error:', parseError);
       return Response.json({
         error: 'Invalid response from Strava API',
-        parseError: parseError.message,
-        responsePreview: await res.text().catch(() => 'Unable to read response')
-      }, { status: 500 });
+        parseError: (parseError as any).message
+      }, { status: 502 });
     }
     if (!Array.isArray(activities) || activities.length === 0) break;
     for (const a of activities as any[]) {
@@ -192,7 +207,8 @@ export async function POST(request: NextRequest) {
     if (!def) return Response.json({ error: 'No Strava account connected' }, { status: 404 });
     return importForAthlete(def.account.providerUserId, Number(years ?? 2));
   } catch (e) {
-    return Response.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Import POST error:', e);
+    return Response.json({ error: 'Internal server error', detail: (e as any)?.message || String(e) }, { status: 500 });
   }
 }
 
@@ -206,7 +222,8 @@ export async function GET(request: NextRequest) {
     if (!def) return Response.json({ error: 'No Strava account connected' }, { status: 404 });
     return importForAthlete(def.account.providerUserId, years);
   } catch (e) {
-    return Response.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Import GET error:', e);
+    return Response.json({ error: 'Internal server error', detail: (e as any)?.message || String(e) }, { status: 500 });
   }
 }
 
