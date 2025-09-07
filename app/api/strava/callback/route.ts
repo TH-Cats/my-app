@@ -67,8 +67,17 @@ export async function GET(request: NextRequest) {
         userId: user.id,
       },
     });
+    // 接続直後に過去データのインポートをバックグラウンドで起動し、ホームへリダイレクト
+    const baseUrl = process.env.PUBLIC_BASE_URL || new URL(request.url).origin;
+    try {
+      fetch(`${baseUrl}/api/strava/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ athleteId, years: 2 })
+      }).catch(()=>{});
+    } catch {}
 
-    return Response.json({ success: true, message: 'Connected to Strava ✅', athleteId });
+    return Response.redirect(`${baseUrl}/?strava=connected&athleteId=${encodeURIComponent(athleteId)}`);
   } catch (e) {
     const message = (e as Error)?.message || 'Unknown error';
     console.error('Strava callback error:', message);

@@ -55,7 +55,7 @@ async function summarizeRecent(userId: string) {
   const since = new Date();
   since.setDate(since.getDate() - 7 * 8); // 8 weeks
   const acts = await prisma.activity.findMany({
-    where: { userId, startTime: { gte: since } },
+    where: { userId, startTime: { gte: since }, excludeFromLearning: false },
     select: { startTime: true, distanceM: true, durationSec: true, elevationM: true, avgHr: true, type: true },
     orderBy: { startTime: 'asc' },
   });
@@ -65,10 +65,28 @@ async function summarizeRecent(userId: string) {
   return `Total ${totalKm.toFixed(1)}km, ${totalH.toFixed(1)}h over ${acts.length} activities.\nRecent: \n${lines.join('\n')}`;
 }
 
+async function getActualUserId() {
+  const user = await prisma.user.findFirst({
+    include: { accounts: true }
+  });
+  if (!user) {
+    const testUser = await prisma.user.upsert({
+      where: { id: 'seed-user-1' },
+      update: {},
+      create: { id: 'seed-user-1', email: 'test@example.com' }
+    });
+    return testUser.id;
+  }
+  return user.id;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { goal, targetRace, periodWeeks = 12, constraints, userId = 'seed-user-1', currentPlan, message, method } = body as any;
+    const { goal, targetRace, periodWeeks = 12, constraints, userId: inputUserId, currentPlan, message, method } = body as any;
+
+    // 実ユーザーIDを解決
+    const userId = inputUserId || await getActualUserId();
 
     let text: string;
     if (currentPlan && message) {

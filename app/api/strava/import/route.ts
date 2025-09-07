@@ -37,6 +37,24 @@ async function importForAthlete(athleteId: string, limitOrYears: number) {
   }
   const { user, account } = found;
   const accessToken = account.accessToken;
+
+  // トークンの有効性を確認
+  console.log('Checking token validity...');
+  const testRes = await fetch('https://www.strava.com/api/v3/athlete', {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+
+  if (!testRes.ok) {
+    console.error('Token validation failed:', testRes.status, testRes.statusText);
+    return Response.json({
+      error: 'Strava access token is invalid or expired',
+      status: testRes.status,
+      suggestion: 'Please reconnect your Strava account'
+    }, { status: 401 });
+  }
+
+  const athlete = await testRes.json();
+  console.log('Token valid, athlete:', athlete.id, athlete.username);
   // Treat the second argument as years if >= 5, otherwise as per_page limit for legacy use
   const years = limitOrYears && limitOrYears > 100 ? 2 : 2; // default 2 years
   const afterEpoch = Math.floor((Date.now() - years * 365 * 24 * 3600 * 1000) / 1000);
@@ -45,46 +63,105 @@ async function importForAthlete(athleteId: string, limitOrYears: number) {
   let created = 0;
   while (true) {
     const url = `https://www.strava.com/api/v3/athlete/activities?per_page=${perPage}&page=${page}&after=${afterEpoch}`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-    const activities = await res.json();
-    if (!res.ok) {
-      return Response.json({ error: 'Failed to fetch activities', detail: activities?.message }, { status: 400 });
+    console.log('Fetching Strava activities:', { url, page, afterEpoch });
+
+    let res;
+    try {
+      res = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal: AbortSignal.timeout(30000) // 30 second timeout
+      });
+    } catch (fetchError) {
+      if (fetchError.name === 'TimeoutError') {
+        return Response.json({
+          error: 'Request timeout - Strava API took too long to respond',
+          suggestion: 'Try again later or reduce the date range'
+        }, { status: 408 });
+      }
+      throw fetchError;
+    }
+
+    console.log('Strava API response:', { status: res.status, statusText: res.statusText });
+
+    let activities;
+    try {
+      const responseText = await res.text();
+      console.log('Raw response preview:', responseText.substring(0, 200));
+
+      if (!res.ok) {
+        // レート制限の場合
+        if (res.status === 429) {
+          const retryAfter = res.headers.get('Retry-After');
+          return Response.json({
+            error: 'Strava API rate limit exceeded',
+            retryAfter: retryAfter ? `${retryAfter} seconds` : 'unknown',
+            suggestion: 'Please wait before retrying'
+          }, { status: 429 });
+        }
+
+        return Response.json({
+          error: 'Failed to fetch activities',
+          status: res.status,
+          statusText: res.statusText,
+          response: responseText.substring(0, 500)
+        }, { status: 400 });
+      }
+
+      activities = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      return Response.json({
+        error: 'Invalid response from Strava API',
+        parseError: parseError.message,
+        responsePreview: await res.text().catch(() => 'Unable to read response')
+      }, { status: 500 });
     }
     if (!Array.isArray(activities) || activities.length === 0) break;
     for (const a of activities as any[]) {
       const sport = (a.sport_type || a.type || '').toLowerCase();
       if (sport === 'walk' || sport === 'walking') continue; // exclude walking
+
       try {
+        // アクティビティデータの検証
+        if (!a.id) {
+          console.warn('Skipping activity without ID:', a);
+          continue;
+        }
+
+        const activityData = {
+          type: a.sport_type || a.type || null,
+          startTime: a.start_date ? new Date(a.start_date) : null,
+          durationSec: a.elapsed_time ?? null,
+          distanceM: a.distance ? Math.round(a.distance) : null,
+          elevationM: a.total_elevation_gain ? Math.round(a.total_elevation_gain) : null,
+          avgHr: a.average_heartrate ? Math.round(a.average_heartrate) : null,
+          avgCadence: a.average_cadence ? Math.round(a.average_cadence) : null,
+          caloriesKcal: a.calories ? Math.round(a.calories) : null,
+          raw: a,
+        };
+
         await prisma.activity.upsert({
           where: { provider_providerId: { provider: 'strava', providerId: String(a.id) } },
-          update: {
-            type: a.sport_type || a.type || null,
-            startTime: a.start_date ? new Date(a.start_date) : null,
-            durationSec: a.elapsed_time ?? null,
-            distanceM: a.distance ? Math.round(a.distance) : null,
-            elevationM: a.total_elevation_gain ? Math.round(a.total_elevation_gain) : null,
-            avgHr: a.average_heartrate ? Math.round(a.average_heartrate) : null,
-            avgCadence: a.average_cadence ? Math.round(a.average_cadence) : null,
-            caloriesKcal: a.calories ? Math.round(a.calories) : null,
-            raw: a,
-          },
+          update: activityData,
           create: {
             provider: 'strava',
             providerId: String(a.id),
             userId: user.id,
-            type: a.sport_type || a.type || null,
-            startTime: a.start_date ? new Date(a.start_date) : null,
-            durationSec: a.elapsed_time ?? null,
-            distanceM: a.distance ? Math.round(a.distance) : null,
-            elevationM: a.total_elevation_gain ? Math.round(a.total_elevation_gain) : null,
-            avgHr: a.average_heartrate ? Math.round(a.average_heartrate) : null,
-            avgCadence: a.average_cadence ? Math.round(a.average_cadence) : null,
-            caloriesKcal: a.calories ? Math.round(a.calories) : null,
-            raw: a,
+            ...activityData,
           },
         });
+
         created += 1;
-      } catch {}
+
+        // 進捗表示（100件ごとに）
+        if (created % 100 === 0) {
+          console.log(`Processed ${created} activities...`);
+        }
+
+      } catch (dbError) {
+        console.error('Database error for activity', a.id, ':', dbError);
+        // データベースエラーの場合も処理を継続
+      }
     }
     if (activities.length < perPage) break;
     page += 1;

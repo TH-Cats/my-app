@@ -21,7 +21,7 @@ async function summarizeRecent(userId: string, period: '2years' | '8weeks' = '8w
   }
 
   const acts = await prisma.activity.findMany({
-    where: { userId, startTime: { gte: since } },
+    where: { userId, startTime: { gte: since }, excludeFromLearning: false },
     select: {
       startTime: true,
       distanceM: true,

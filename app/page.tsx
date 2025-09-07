@@ -57,14 +57,35 @@ export default function Home() {
             if (importResult.ok) {
               const data = await importResult.json();
               localStorage.setItem('strava-imported', 'true');
-              console.log('Strava data imported successfully:', data);
+              console.log('✅ Strava data imported successfully:', data);
+
+              // 成功メッセージを表示（オプション）
+              setTimeout(() => {
+                alert(`Stravaデータ ${data.imported}件 をインポートしました！`);
+              }, 1000);
+              // インポート成功後、既存のAIプランを破棄して再生成（過去データ反映）
+              try {
+                localStorage.removeItem('ai-plan');
+              } catch {}
+              await generate();
             } else {
-              const errorData = await importResult.json();
-              console.log('Strava import failed:', errorData);
+              const errorData = await importResult.json().catch(() => ({ error: 'Unknown error' }));
+              console.error('❌ Strava import failed:', errorData);
+
+              // エラーメッセージを表示
+              setTimeout(() => {
+                const message = errorData.error || 'Stravaデータのインポートに失敗しました';
+                const suggestion = errorData.suggestion || '設定から再度お試しください';
+                alert(`${message}\n\n${suggestion}`);
+              }, 1000);
             }
           } catch (error) {
-            console.log('Strava import error:', error);
-            // インポートに失敗してもアプリは動作するので、エラーを無視
+            console.error('❌ Strava import network error:', error);
+
+            // ネットワークエラーの場合
+            setTimeout(() => {
+              alert('ネットワークエラーが発生しました。インターネット接続を確認してください。');
+            }, 1000);
           }
         }
       } catch {
@@ -78,7 +99,8 @@ export default function Home() {
   const generate = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/ai/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ goal: '次のレースに向けてコンディションを高める', periodWeeks: 12 }) });
+      const method = (typeof window!== 'undefined' ? localStorage.getItem('ai-method') : '') || undefined;
+      const res = await fetch('/api/ai/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ goal: '次のレースに向けてコンディションを高める', periodWeeks: 12, method }) });
       const data = await res.json();
       setPlan(data.plan);
       localStorage.setItem('ai-plan', JSON.stringify(data.plan));
@@ -182,7 +204,33 @@ export default function Home() {
                 <summary className="cursor-pointer px-3 py-2 rounded border bg-white">設定 ▾</summary>
                 <div className="absolute right-0 mt-2 w-[340px] bg-white border rounded shadow p-3 space-y-2 z-10">
                   <a href="/api/strava/start" className="block px-3 py-2 hover:bg-gray-50 rounded">Stravaと接続する</a>
-                  <button onClick={async ()=>{ const athleteId = prompt('Strava athleteId を入力 (例: 47171719)'); if (!athleteId) return; await fetch('/api/strava/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ athleteId, years: 2 })}).then(async (r)=>alert(JSON.stringify(await r.json()))); }} className="block w-full text-left px-3 py-2 hover:bg-gray-50 rounded">最近のアクティビティを取り込む（過去2年）</button>
+                  <button onClick={async ()=>{
+                    console.log('Manual Strava import requested');
+                    try {
+                      const confirmImport = confirm('Stravaから過去2年分のデータをインポートしますか？\n\n※時間がかかる場合があります');
+                      if (!confirmImport) return;
+
+                      const result = await fetch('/api/strava/import', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ years: 2 })
+                      });
+
+                      if (result.ok) {
+                        const data = await result.json();
+                        alert(`✅ インポート成功！\n${data.imported}件のアクティビティを追加しました。`);
+                        localStorage.setItem('strava-imported', 'true');
+                        try { localStorage.removeItem('ai-plan'); } catch {}
+                        await generate();
+                      } else {
+                        const errorData = await result.json().catch(() => ({ error: 'Unknown error' }));
+                        alert(`❌ インポート失敗:\n${errorData.error}\n\n${errorData.suggestion || ''}`);
+                      }
+                    } catch (error) {
+                      console.error('Manual import error:', error);
+                      alert('❌ ネットワークエラーが発生しました。');
+                    }
+                  }} className="block w-full text-left px-3 py-2 hover:bg-gray-50 rounded">🔄 最近のアクティビティを取り込む（過去2年）</button>
                   <div className="pt-2 border-t">
                     <div className="font-semibold text-sm mb-1">目標（最大5）</div>
                     {goals.map((g, i)=> (
@@ -445,8 +493,8 @@ export default function Home() {
             </a>
           </div>
         </div>
-        {advice?.recent ? (
-          <div className="mt-2 text-xs text-gray-600">直近所見: {advice.recent}</div>
+        {advice?.advice?.recent ? (
+          <div className="mt-2 text-xs text-gray-600">直近所見: {advice.advice.recent}</div>
         ) : null}
       </section>
 
