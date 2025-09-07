@@ -9,7 +9,19 @@ export default function Home() {
   const [plan, setPlan] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
-  const [advice, setAdvice] = useState<{ recent?: string; menu_comment?: string } | null>(null);
+  const [advice, setAdvice] = useState<{
+    advice?: {
+      overall_assessment?: string;
+      strengths?: string;
+      improvements?: string;
+      today_advice?: string;
+      future_plan?: string;
+      recent?: string;
+      menu_comment?: string;
+    };
+    data?: any;
+    period?: string;
+  } | null>(null);
   const [showDash, setShowDash] = useState(true);
   const [goals, setGoals] = useState<Array<{ race?: string; date?: string; target?: string; note?: string }>>([]);
 
@@ -29,6 +41,25 @@ export default function Home() {
       }
       const g = localStorage.getItem('ai-goals');
       if (g) { try { setGoals(JSON.parse(g)); } catch {} }
+
+      // Stravaデータの自動インポート（初回のみ）
+      const hasImported = localStorage.getItem('strava-imported');
+      if (!hasImported) {
+        try {
+          const importResult = await fetch('/api/strava/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ years: 2 })
+          }).then(r => r.json());
+
+          if (importResult.ok) {
+            localStorage.setItem('strava-imported', 'true');
+            console.log('Strava data imported:', importResult);
+          }
+        } catch (error) {
+          console.log('Strava import skipped (no account or error):', error);
+        }
+      }
     } catch {
       // localStorage 不可時は無視
     }
@@ -41,10 +72,17 @@ export default function Home() {
       const data = await res.json();
       setPlan(data.plan);
       localStorage.setItem('ai-plan', JSON.stringify(data.plan));
-      // 初回アドバイス
+      // 初回アドバイス（過去2年分のデータを分析）
       try {
-        const adv = await fetch('/api/ai/advice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ today: data.plan?.weeks?.[0]?.days?.[0] || null }) }).then(r=>r.json());
-        if (adv?.advice) setAdvice(adv.advice);
+        const adv = await fetch('/api/ai/advice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            today: data.plan?.weeks?.[0]?.days?.[0] || null,
+            period: '2years'
+          })
+        }).then(r=>r.json());
+        if (adv) setAdvice(adv);
       } catch {}
     } finally {
       setLoading(false);
@@ -61,8 +99,15 @@ export default function Home() {
       localStorage.setItem('ai-plan', JSON.stringify(data.plan));
       setMsg("");
       try {
-        const adv = await fetch('/api/ai/advice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ today: data.plan?.weeks?.[0]?.days?.[0] || null }) }).then(r=>r.json());
-        if (adv?.advice) setAdvice(adv.advice);
+        const adv = await fetch('/api/ai/advice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            today: data.plan?.weeks?.[0]?.days?.[0] || null,
+            period: '2years'
+          })
+        }).then(r=>r.json());
+        if (adv) setAdvice(adv);
       } catch {}
     } finally {
       setLoading(false);
@@ -245,8 +290,82 @@ export default function Home() {
             {todayPlan.notes ? (
               <div className="mt-1 text-xs text-gray-600">メモ: {todayPlan.notes}</div>
             ) : null}
-            {advice?.menu_comment ? (
-              <div className="mt-2 text-sm bg-blue-50 border border-blue-200 text-blue-900 rounded p-2">{advice.menu_comment}</div>
+            {/* Gemini AIの詳細分析結果 */}
+            {advice?.advice ? (
+              <div className="mt-6 space-y-4">
+                {/* トレーニングデータ概要 */}
+                {advice.data && (
+                  <div className="card p-4">
+                    <h3 className="text-lg font-semibold mb-3 text-orange-600">📊 トレーニング分析 ({advice.period})</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">{advice.data.activityCount}</div>
+                        <div className="text-gray-600">アクティビティ数</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">{advice.data.totalKm.toFixed(0)}</div>
+                        <div className="text-gray-600">総距離 (km)</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-purple-600">{advice.data.totalH.toFixed(0)}</div>
+                        <div className="text-gray-600">総時間 (h)</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-red-600">{advice.data.avgHr.toFixed(0)}</div>
+                        <div className="text-gray-600">平均心拍数</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* AIアドバイス */}
+                <div className="card p-4">
+                  <h3 className="text-lg font-semibold mb-3 text-orange-600">🤖 AIコーチの分析</h3>
+                  <div className="space-y-3">
+                    {advice.advice.overall_assessment && (
+                      <div className="p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
+                        <div className="font-semibold text-blue-800 mb-1">全体評価</div>
+                        <div className="text-blue-700">{advice.advice.overall_assessment}</div>
+                      </div>
+                    )}
+
+                    {advice.advice.strengths && (
+                      <div className="p-3 bg-green-50 border-l-4 border-green-400 rounded">
+                        <div className="font-semibold text-green-800 mb-1">💪 強み</div>
+                        <div className="text-green-700">{advice.advice.strengths}</div>
+                      </div>
+                    )}
+
+                    {advice.advice.improvements && (
+                      <div className="p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+                        <div className="font-semibold text-yellow-800 mb-1">🎯 改善点</div>
+                        <div className="text-yellow-700">{advice.advice.improvements}</div>
+                      </div>
+                    )}
+
+                    {advice.advice.today_advice && (
+                      <div className="p-3 bg-purple-50 border-l-4 border-purple-400 rounded">
+                        <div className="font-semibold text-purple-800 mb-1">📋 本日のアドバイス</div>
+                        <div className="text-purple-700">{advice.advice.today_advice}</div>
+                      </div>
+                    )}
+
+                    {advice.advice.future_plan && (
+                      <div className="p-3 bg-indigo-50 border-l-4 border-indigo-400 rounded">
+                        <div className="font-semibold text-indigo-800 mb-1">🔮 今後の計画</div>
+                        <div className="text-indigo-700">{advice.advice.future_plan}</div>
+                      </div>
+                    )}
+
+                    {advice.advice.menu_comment && (
+                      <div className="p-3 bg-orange-50 border-l-4 border-orange-400 rounded">
+                        <div className="font-semibold text-orange-800 mb-1">💬 本日のメニューコメント</div>
+                        <div className="text-orange-700">{advice.advice.menu_comment}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             ) : null}
           </div>
         ) : (
