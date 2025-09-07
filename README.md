@@ -1,40 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DRC Trainer
 
-## Getting Started
+AI搭載のランニングトレーニング管理アプリ
 
-First, run the development server:
+## 🚀 デプロイ方法
 
+### 方法1: 自動デプロイスクリプト（推奨）
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+./deploy.sh
+```
+コミットメッセージを入力するか、自動で日時が付与されます。
+
+### 方法2: npmスクリプト
+```bash
+# 変更をコミットしてデプロイ
+npm run push:deploy
+
+# コミットのみ
+npm run push
+
+# デプロイのみ
+npm run deploy
+
+# ビルドチェック付きデプロイ
+npm run deploy:safe
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 方法3: 手動実行
+```bash
+# 変更をステージング
+git add .
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+# コミット
+git commit -m "更新内容"
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# プッシュ
+git push
 
-## Learn More
+# Vercelデプロイ
+npx vercel --prod --yes --regions=iad1
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 📋 主な機能
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- ✅ Stravaデータ自動連携（過去2年分）
+- ✅ AIによるトレーニング分析（Gemini）
+- ✅ インタラクティブなダッシュボード
+- ✅ 月次トレンドグラフ（前年比較）
+- ✅ アクティビティ管理（学習除外機能）
+- ✅ レスポンシブデザイン
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🌐 本番環境
 
-## Deploy on Vercel
+https://drc-trainer.vercel.app
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🛠️ 開発環境
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# Force redeploy - 2025年 9月 6日 土曜日 15時36分59秒 JST
-# Deploy trigger - 2025年 9月 6日 土曜日 15時42分29秒 JST
-# Deploy trigger with new project - 2025年 9月 6日 土曜日 16時13分47秒 JST
-# deploy - 2025年 9月 6日 土曜日 23時00分32秒 JST
+```bash
+# 依存関係インストール
+npm install
+
+# 開発サーバー起動
+npm run dev
+
+# ビルド
+npm run build
+
+# 本番サーバー起動
+npm start
+```
+
+## 📁 プロジェクト構造
+
+```
+my-app/
+├── app/
+│   ├── api/           # APIエンドポイント
+│   ├── dashboard/     # ダッシュボード
+│   ├── activities/    # アクティビティ管理
+│   └── page.tsx       # ホームページ
+├── public/            # 静的ファイル
+├── prisma/            # データベーススキーマ
+└── deploy.sh          # デプロイスクリプト
+```
+
+## 🔧 環境変数
+
+必要な環境変数を設定してください：
+- `DATABASE_URL`: PostgreSQL接続URL
+- `GOOGLE_AI_API_KEY`: Gemini APIキー
+- `STRAVA_CLIENT_ID`: StravaアプリID
+- `STRAVA_CLIENT_SECRET`: Stravaアプリシークレット
+
+## 📝 デプロイ時の注意点
+
+- 初回デプロイ時は `./deploy.sh` を使用
+- Vercelの自動デプロイが機能しない場合は手動デプロイを実行
+- ブラウザキャッシュをクリアして確認してください

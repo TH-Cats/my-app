@@ -7,7 +7,11 @@
     "build": "next build --turbopack",
     "start": "next start",
     "prisma": "prisma",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "deploy": "git push && npx vercel --prod --yes --regions=iad1",
+    "deploy:safe": "npm run build && npm run deploy",
+    "push": "git add . && git commit -m \"update\" && git push",
+    "push:deploy": "npm run push && npm run deploy"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
