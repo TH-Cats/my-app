@@ -55,13 +55,17 @@ export default function Home() {
             // 分割インポート: 1回に最大1ページまで取り込み、続きがあればループ
             let pageNo = 1;
             let totalImported = 0;
+            let lastError: any = null;
             for (let i=0;i<10;i++) { // 安全のため最大10リクエスト
               const importResult = await fetch('/api/strava/import', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ years: 2, startPage: pageNo, maxPages: 1 })
               });
-              if (!importResult.ok) break;
+              if (!importResult.ok) {
+                try { lastError = await importResult.json(); } catch {}
+                break;
+              }
               const data = await importResult.json();
               totalImported += data.imported || 0;
               if (!data.hasMore) break;
@@ -82,11 +86,11 @@ export default function Home() {
               } catch {}
               await generate();
             } else {
-              console.error('❌ Strava import failed: no items imported');
+              console.error('❌ Strava import failed', lastError);
               // エラーメッセージを表示
               setTimeout(() => {
-                const message = 'Stravaデータのインポートに失敗しました';
-                const suggestion = '時間をおいて再度お試しください（サーバー混雑の可能性）';
+                const message = lastError?.error || 'Stravaデータのインポートに失敗しました';
+                const suggestion = lastError?.suggestion || '時間をおいて再度お試しください（サーバー混雑の可能性）';
                 alert(`${message}\n\n${suggestion}`);
               }, 1000);
             }
