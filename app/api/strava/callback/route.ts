@@ -68,7 +68,8 @@ export async function GET(request: NextRequest) {
       },
     });
     // 接続直後に過去データのインポートをバックグラウンドで起動し、ホームへリダイレクト
-    const baseUrl = process.env.PUBLIC_BASE_URL || new URL(request.url).origin;
+    // 常に現在のオリジンを使用（クロスプロジェクト回避）
+    const baseUrl = new URL(request.url).origin;
     try {
       fetch(`${baseUrl}/api/strava/import`, {
         method: 'POST',
