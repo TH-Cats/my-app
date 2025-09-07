@@ -176,6 +176,7 @@ export default function Home() {
           </div>
           <div className="ml-auto flex items-center gap-2">
             <a href="/activities" className="inline-block bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Activities</a>
+            <a href="/plan" className="inline-block bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold py-2 px-4 rounded">プラン詳細</a>
             <div className="relative">
               <details>
                 <summary className="cursor-pointer px-3 py-2 rounded border bg-white">設定 ▾</summary>

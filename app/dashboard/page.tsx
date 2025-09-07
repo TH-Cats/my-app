@@ -52,12 +52,31 @@ async function loadYear(yearOffset = 0, userId?: string) {
     }
   }
 
+  console.log('Loading year data:', {
+    yearOffset,
+    year,
+    from: from.toISOString(),
+    to: to.toISOString(),
+    targetUserId
+  });
+
   const rows = await prisma.activity.findMany({
     where: {
       startTime: { gte: from, lt: to },
       ...(targetUserId && { userId: targetUserId })
     },
-    select: { avgHr: true, durationSec: true, distanceM: true, elevationM: true },
+    select: { avgHr: true, durationSec: true, distanceM: true, elevationM: true, startTime: true },
+    orderBy: { startTime: 'asc' }
+  });
+
+  console.log('Year data loaded:', {
+    yearOffset,
+    rowCount: rows.length,
+    sampleData: rows.slice(0, 2).map(r => ({
+      date: r.startTime?.toISOString().slice(0, 10),
+      distance: r.distanceM,
+      duration: r.durationSec
+    }))
   });
   
   const byZone: Record<ZoneKey, number> = {
@@ -358,9 +377,33 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     monthlyRowsCount: monthlyRows.length,
     lastYearRowsCount: lastYearRows.length,
     userId,
+    currentYear: new Date().getFullYear(),
+    lastYear: new Date().getFullYear() - 1,
     distData: distData.slice(0, 3),
-    lastYearDistData: lastYearDistData.slice(0, 3)
+    lastYearDistData: lastYearDistData.slice(0, 3),
+    hasCurrentData: distData.some(d => d.value > 0),
+    hasLastYearData: lastYearDistData.some(d => d.value > 0)
   });
+
+  // 前年データが全くない場合の警告
+  if (lastYearRows.length === 0) {
+    console.warn('No last year data found! This may indicate:', {
+      possibleCauses: [
+        'No activities from last year in database',
+        'Wrong user ID filtering',
+        'Date range calculation error',
+        'Database connection issue'
+      ],
+      dateRange: {
+        from: new Date(new Date().getFullYear() - 1, new Date().getMonth() - 11, 1).toISOString(),
+        to: new Date(new Date().getFullYear() - 1, new Date().getMonth() + 1, 1).toISOString()
+      }
+    });
+  }
+
+  // データがない場合の通知フラグ
+  const hasNoData = monthlyRows.length === 0 && lastYearRows.length === 0;
+  const hasNoLastYearData = lastYearRows.length === 0;
   const fmtH = (sec: number) => (sec / 3600).toFixed(1);
   const fmtDist = (km: number) => km.toFixed(1);
   const fmtElev = (m: number) => Math.round(m).toLocaleString();
@@ -371,6 +414,36 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <p className="text-sm text-gray-600 mt-1">ゾーン割合は暫定的に平均心拍から推定しています。後で個別ゾーン設定に差し替えます。</p>
         <p className="text-xs text-gray-500">※ 以下の数値は年次集計（1/1〜今日）です。近々「直近1/3/6/12ヶ月」に切替できるフィルタを追加します。</p>
+
+        {/* データがない場合の通知 */}
+        {hasNoData && (
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className="text-yellow-600">⚠️</div>
+              <div>
+                <div className="font-semibold text-yellow-800">トレーニングデータが見つかりません</div>
+                <div className="text-sm text-yellow-700 mt-1">
+                  Stravaとの同期を行ってデータを取得してください。
+                  <a href="/" className="ml-2 underline hover:no-underline">ホームに戻る</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {hasNoLastYearData && !hasNoData && (
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className="text-blue-600">ℹ️</div>
+              <div>
+                <div className="font-semibold text-blue-800">昨年のデータがありません</div>
+                <div className="text-sm text-blue-700 mt-1">
+                  グラフのオーバーレイ表示ができません。昨年のアクティビティデータをインポートしてください。
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       
       {/* Year comparison metrics */}
