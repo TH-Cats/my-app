@@ -43,9 +43,13 @@ export default function Home() {
         const g = localStorage.getItem('ai-goals');
         if (g) { try { setGoals(JSON.parse(g)); } catch {} }
 
-        // Stravaデータの自動インポート（初回のみ）
+        // Stravaデータの自動インポート
+        // 1) 認可直後(?strava=connected)は強制的に取り込み実行
+        // 2) それ以外は初回のみ（localStorageフラグ未設定時）
+        const url = new URL(window.location.href);
+        const justConnected = url.searchParams.get('strava') === 'connected';
         const hasImported = localStorage.getItem('strava-imported');
-        if (!hasImported) {
+        if (justConnected || !hasImported) {
           console.log('Attempting to import Strava data...');
           try {
             const importResult = await fetch('/api/strava/import', {
