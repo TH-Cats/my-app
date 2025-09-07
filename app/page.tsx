@@ -68,14 +68,13 @@ export default function Home() {
               pageNo = data.nextPage || (pageNo + 1);
             }
 
-            if (importResult.ok) {
-              const data = await importResult.json();
+            if (totalImported > 0) {
               localStorage.setItem('strava-imported', 'true');
-              console.log('✅ Strava data imported successfully:', data);
+              console.log('✅ Strava data imported successfully (batched):', { totalImported });
 
               // 成功メッセージを表示（オプション）
               setTimeout(() => {
-                alert(`Stravaデータ ${data.imported}件 をインポートしました！`);
+                alert(`Stravaデータ ${totalImported}件 をインポートしました！`);
               }, 1000);
               // インポート成功後、既存のAIプランを破棄して再生成（過去データ反映）
               try {
@@ -83,13 +82,11 @@ export default function Home() {
               } catch {}
               await generate();
             } else {
-              const errorData = await importResult.json().catch(() => ({ error: 'Unknown error' }));
-              console.error('❌ Strava import failed:', errorData);
-
+              console.error('❌ Strava import failed: no items imported');
               // エラーメッセージを表示
               setTimeout(() => {
-                const message = errorData.error || 'Stravaデータのインポートに失敗しました';
-                const suggestion = errorData.suggestion || '設定から再度お試しください';
+                const message = 'Stravaデータのインポートに失敗しました';
+                const suggestion = '時間をおいて再度お試しください（サーバー混雑の可能性）';
                 alert(`${message}\n\n${suggestion}`);
               }, 1000);
             }
