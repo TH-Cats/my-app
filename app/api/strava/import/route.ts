@@ -38,11 +38,22 @@ async function importForAthlete(athleteId: string, limitOrYears: number) {
   const { user, account } = found;
   const accessToken = account.accessToken;
 
-  // トークンの有効性を確認
+  // トークンの有効性を確認（タイムアウト付き）
   console.log('Checking token validity...');
-  const testRes = await fetch('https://www.strava.com/api/v3/athlete', {
-    headers: { Authorization: `Bearer ${accessToken}` }
-  });
+  let testRes: Response;
+  try {
+    testRes = await fetch('https://www.strava.com/api/v3/athlete', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(15000) // 15s timeout
+    });
+  } catch (err: any) {
+    const isTimeout = err?.name === 'TimeoutError';
+    console.error('Token validation request failed:', err);
+    return Response.json({
+      error: isTimeout ? 'Request timeout when contacting Strava (token check)' : 'Failed to contact Strava (token check)',
+      suggestion: 'Please retry connecting your Strava account',
+    }, { status: isTimeout ? 408 : 502 });
+  }
 
   if (!testRes.ok) {
     console.error('Token validation failed:', testRes.status, testRes.statusText);
@@ -72,7 +83,7 @@ async function importForAthlete(athleteId: string, limitOrYears: number) {
         signal: AbortSignal.timeout(30000) // 30 second timeout
       });
     } catch (fetchError) {
-      if (fetchError.name === 'TimeoutError') {
+      if ((fetchError as any)?.name === 'TimeoutError') {
         return Response.json({
           error: 'Request timeout - Strava API took too long to respond',
           suggestion: 'Try again later or reduce the date range'

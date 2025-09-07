@@ -84,7 +84,8 @@ export default function Home() {
 
             // ネットワークエラーの場合
             setTimeout(() => {
-              alert('ネットワークエラーが発生しました。インターネット接続を確認してください。');
+              const msg = (error as any)?.message || 'ネットワークエラーが発生しました。インターネット接続を確認してください。';
+              alert(msg);
             }, 1000);
           }
         }
